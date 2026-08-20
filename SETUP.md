@@ -2,7 +2,8 @@
 
 This project ships as source + an **XcodeGen** spec so the `.xcodeproj` (with its
 app target, Share Extension and test target) is generated deterministically
-instead of being committed. Follow the steps below on a Mac with **Xcode 15+**.
+instead of being committed. Follow the steps below on a Mac with **Xcode 16+**
+(the project format emitted by the current XcodeGen requires Xcode 16 or newer).
 
 ---
 

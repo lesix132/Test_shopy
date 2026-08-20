@@ -128,7 +128,8 @@ Multiple versions supported (généraliste / spécialisé).
 
 ## Getting started
 
-You need macOS with **Xcode 15+**. See **[SETUP.md](SETUP.md)** for the full
+You need macOS with **Xcode 16+** (the project format emitted by the current
+XcodeGen requires it). See **[SETUP.md](SETUP.md)** for the full
 walkthrough (generating the project, capabilities, App Groups, and where to paste
 your Anthropic API key).
 

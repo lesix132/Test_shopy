@@ -15,7 +15,8 @@ concurrency:
 jobs:
   build-and-test:
     name: Build & test (macOS)
-    runs-on: macos-14
+    # macos-15 ships Xcode 16, required to read the project format XcodeGen emits.
+    runs-on: macos-15
 
     steps:
       - name: Checkout
