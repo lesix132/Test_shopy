@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & test (macOS)
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Pick an available iOS simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)['devices']
+          candidates = [
+              dev['udid']
+              for runtime, devices in data.items()
+              if 'iOS' in runtime
+              for dev in devices
+              if dev.get('isAvailable') and dev['name'].startswith('iPhone')
+          ]
+          if not candidates:
+              sys.exit('No available iPhone simulator found')
+          print(candidates[0])
+          ")
+          echo "Using simulator UDID: $UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Build & test (iOS Simulator)
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project JobTrack.xcodeproj \
+            -scheme JobTrack \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee xcodebuild-ios.log
+
+      - name: Build (macOS)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project JobTrack.xcodeproj \
+            -scheme JobTrack \
+            -destination "platform=macOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee xcodebuild-macos.log
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-logs
+          path: "*.log"
+          if-no-files-found: ignore
