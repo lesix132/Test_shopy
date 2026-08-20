@@ -8,6 +8,7 @@ struct EmailDraftSheet: View {
 
     let draft: EmailDraft
     let recipient: String?
+    let gmail: GmailService?
     let onSent: () -> Void
     let onClose: () -> Void
 
@@ -15,10 +16,19 @@ struct EmailDraftSheet: View {
     @State private var messageBody: String
     @State private var to: String
     @State private var copied = false
+    @State private var isSending = false
+    @State private var sendError: String?
 
-    init(draft: EmailDraft, recipient: String?, onSent: @escaping () -> Void, onClose: @escaping () -> Void) {
+    init(
+        draft: EmailDraft,
+        recipient: String?,
+        gmail: GmailService? = nil,
+        onSent: @escaping () -> Void,
+        onClose: @escaping () -> Void
+    ) {
         self.draft = draft
         self.recipient = recipient
+        self.gmail = gmail
         self.onSent = onSent
         self.onClose = onClose
         _subject = State(initialValue: draft.subject)
@@ -46,6 +56,18 @@ struct EmailDraftSheet: View {
                         .font(.body)
                 }
                 Section {
+                    if let gmail, gmail.isConnected {
+                        Button {
+                            Task { await sendViaGmail(gmail) }
+                        } label: {
+                            if isSending {
+                                HStack { ProgressView(); Text("Envoi via Gmail…") }
+                            } else {
+                                Label("Envoyer via Gmail", systemImage: "paperplane.fill")
+                            }
+                        }
+                        .disabled(isSending || to.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
                     Button {
                         openInMail()
                     } label: {
@@ -63,8 +85,12 @@ struct EmailDraftSheet: View {
                         Label("Marquer comme envoyé", systemImage: "checkmark.circle")
                     }
                 } footer: {
-                    Text("JobTrack n'envoie jamais d'e-mail à ta place : tu valides "
-                         + "et tu envoies depuis ta messagerie.")
+                    if let sendError {
+                        Text(sendError).foregroundStyle(.orange)
+                    } else {
+                        Text("Tu peux envoyer directement via Gmail (si connecté), "
+                             + "ouvrir ta messagerie, ou copier le message.")
+                    }
                 }
             }
             .navigationTitle("Brouillon")
@@ -76,6 +102,24 @@ struct EmailDraftSheet: View {
                     Button("Fermer") { onClose(); dismiss() }
                 }
             }
+        }
+    }
+
+    private func sendViaGmail(_ gmail: GmailService) async {
+        isSending = true
+        sendError = nil
+        defer { isSending = false }
+        do {
+            try await gmail.send(
+                to: to.trimmingCharacters(in: .whitespacesAndNewlines),
+                subject: subject,
+                body: messageBody)
+            onSent()
+            dismiss()
+        } catch let error as GmailError {
+            sendError = error.errorDescription
+        } catch {
+            sendError = error.localizedDescription
         }
     }
 

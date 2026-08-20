@@ -24,7 +24,10 @@ struct SettingsView: View {
         }
         .onAppear {
             if viewModel == nil {
-                viewModel = SettingsViewModel(secretStore: services.keychain, claude: services.claude)
+                viewModel = SettingsViewModel(
+                    secretStore: services.keychain,
+                    claude: services.claude,
+                    googleAuth: services.googleAuth)
             }
         }
         #if os(iOS)
@@ -40,6 +43,7 @@ struct SettingsView: View {
         Form {
             apiSection(vm)
             frenchSourcesSection(vm)
+            gmailSection(vm)
             dataSection(vm)
             aboutSection
             if let message = vm.statusMessage {
@@ -146,6 +150,59 @@ struct SettingsView: View {
                  + "Adzuna sur developer.adzuna.com. Une fois enregistrées, active "
                  + "la source dans l'onglet Fil → Sources, et règle les mots-clés "
                  + "(défaut : « \(AppConfig.defaultFeedQuery) »).")
+        }
+    }
+
+    @ViewBuilder
+    private func gmailSection(_ vm: SettingsViewModel) -> some View {
+        @Bindable var vm = vm
+        Section {
+            HStack {
+                Image(systemName: vm.gmailConnected ? "envelope.circle.fill" : "envelope.circle")
+                    .foregroundStyle(vm.gmailConnected ? .green : .secondary)
+                VStack(alignment: .leading) {
+                    Text(vm.gmailConnected ? "Gmail connecté" : "Gmail non connecté")
+                        .font(.subheadline)
+                    if let address = vm.gmailAddress {
+                        Text(address).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            if !vm.hasGoogleClientID {
+                TextField("Identifiant client OAuth (…apps.googleusercontent.com)",
+                          text: $vm.gmailClientIDInput)
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    #endif
+                Button("Enregistrer l'identifiant") { vm.saveGoogleClientID() }
+                    .disabled(vm.gmailClientIDInput.trimmingCharacters(in: .whitespaces).isEmpty)
+            } else if !vm.gmailConnected {
+                Button {
+                    Task { await vm.connectGmail() }
+                } label: {
+                    if vm.isConnectingGmail {
+                        HStack { ProgressView(); Text("Connexion…") }
+                    } else {
+                        Label("Connecter Gmail", systemImage: "person.crop.circle.badge.plus")
+                    }
+                }
+                .disabled(vm.isConnectingGmail)
+                Button("Supprimer l'identifiant Google", role: .destructive) {
+                    vm.deleteGoogleClientID()
+                }
+            } else {
+                Button("Déconnecter Gmail", role: .destructive) { vm.disconnectGmail() }
+            }
+        } header: {
+            Text("Gmail (envoi & relances automatiques)")
+        } footer: {
+            Text("Connecte ton compte pour envoyer les e-mails et détecter les "
+                 + "réponses. Crée un identifiant OAuth (type iOS) sur "
+                 + "console.cloud.google.com, active l'API Gmail, et ajoute les "
+                 + "scopes gmail.send et gmail.readonly. Aucun mot de passe n'est "
+                 + "stocké — seul un jeton sécurisé dans le Keychain.")
         }
     }
 

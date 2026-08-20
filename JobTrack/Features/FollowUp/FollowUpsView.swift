@@ -80,6 +80,7 @@ struct FollowUpsView: View {
                 EmailDraftSheet(
                     draft: draft,
                     recipient: offer(for: vm.draftOfferID)?.contactEmail,
+                    gmail: services.gmail,
                     onSent: {
                         if let offer = offer(for: vm.draftOfferID) {
                             markContacted(offer)
@@ -130,6 +131,11 @@ struct FollowUpsView: View {
                     Button("Réponse reçue") { markReplied(offer) }
                     if offer.hasReply {
                         Button("Annuler « réponse reçue »") { offer.hasReply = false; save() }
+                    }
+                    if services.gmail.isConnected {
+                        Button("Vérifier les réponses (Gmail)") {
+                            Task { await checkReply(offer) }
+                        }
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -182,6 +188,19 @@ struct FollowUpsView: View {
     private func markReplied(_ offer: JobOffer) {
         offer.hasReply = true
         save()
+    }
+
+    /// Uses Gmail to check whether a reply arrived since the application date.
+    private func checkReply(_ offer: JobOffer) async {
+        do {
+            let replied = try await services.gmail.hasReply(
+                from: offer.contactEmail,
+                company: offer.company,
+                since: offer.appliedAt ?? offer.dateAdded)
+            if replied { markReplied(offer) }
+        } catch {
+            // Silently ignore; the menu action is best-effort.
+        }
     }
 
     private func save() {

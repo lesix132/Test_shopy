@@ -21,12 +21,21 @@ final class SettingsViewModel {
     var adzunaAppKeyInput = ""
     var hasAdzuna = false
 
+    // Gmail
+    var gmailClientIDInput = ""
+    var hasGoogleClientID = false
+    var gmailConnected = false
+    var gmailAddress: String?
+    var isConnectingGmail = false
+
     private let secretStore: SecretStore
     private let claude: ClaudeService
+    private let googleAuth: GoogleOAuthService
 
-    init(secretStore: SecretStore, claude: ClaudeService) {
+    init(secretStore: SecretStore, claude: ClaudeService, googleAuth: GoogleOAuthService) {
         self.secretStore = secretStore
         self.claude = claude
+        self.googleAuth = googleAuth
         refreshKeyState()
     }
 
@@ -36,6 +45,55 @@ final class SettingsViewModel {
             && secretStore.value(AppConfig.franceTravailClientSecretAccount) != nil
         hasAdzuna = secretStore.value(AppConfig.adzunaAppIDAccount) != nil
             && secretStore.value(AppConfig.adzunaAppKeyAccount) != nil
+        hasGoogleClientID = secretStore.value(AppConfig.gmailClientIDAccount) != nil
+        gmailConnected = googleAuth.isConnected
+        gmailAddress = googleAuth.connectedAddress
+    }
+
+    // MARK: - Gmail
+
+    func saveGoogleClientID() {
+        let id = gmailClientIDInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !id.isEmpty else { return }
+        do {
+            try secretStore.save(id, account: AppConfig.gmailClientIDAccount)
+            gmailClientIDInput = ""
+            hasGoogleClientID = true
+            show("Identifiant OAuth Google enregistré.", error: false)
+        } catch {
+            show(error.localizedDescription, error: true)
+        }
+    }
+
+    func connectGmail() async {
+        isConnectingGmail = true
+        defer { isConnectingGmail = false }
+        do {
+            try await googleAuth.connect()
+            gmailConnected = googleAuth.isConnected
+            gmailAddress = googleAuth.connectedAddress
+            show("Gmail connecté : \(gmailAddress ?? "compte")", error: false)
+        } catch let error as GmailError {
+            show(error.errorDescription ?? "Erreur", error: true)
+        } catch {
+            show(error.localizedDescription, error: true)
+        }
+    }
+
+    func disconnectGmail() {
+        googleAuth.disconnect()
+        gmailConnected = false
+        gmailAddress = nil
+        show("Gmail déconnecté.", error: false)
+    }
+
+    func deleteGoogleClientID() {
+        googleAuth.disconnect()
+        try? secretStore.delete(account: AppConfig.gmailClientIDAccount)
+        hasGoogleClientID = false
+        gmailConnected = false
+        gmailAddress = nil
+        show("Identifiant Google supprimé.", error: false)
     }
 
     // MARK: - France Travail / Adzuna credentials

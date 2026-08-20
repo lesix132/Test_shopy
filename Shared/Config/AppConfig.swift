@@ -63,4 +63,26 @@ enum AppConfig {
 
     /// Adzuna France search endpoint (page 1).
     static let adzunaSearchBase = "https://api.adzuna.com/v1/api/jobs/fr/search/1"
+
+    // MARK: Gmail (optional send + reply detection via the user's own account)
+
+    /// Keychain accounts for the Gmail OAuth client id and tokens.
+    static let gmailClientIDAccount = "gmail.client.id"
+    static let gmailAccessTokenAccount = "gmail.access.token"
+    static let gmailRefreshTokenAccount = "gmail.refresh.token"
+    static let gmailTokenExpiryAccount = "gmail.token.expiry"   // ISO-8601
+    static let gmailAddressAccount = "gmail.address"
+
+    /// Google OAuth 2.0 endpoints.
+    static let googleAuthEndpoint = URL(string: "https://accounts.google.com/o/oauth2/v2/auth")!
+    static let googleTokenEndpoint = URL(string: "https://oauth2.googleapis.com/token")!
+
+    /// Gmail scopes: send messages and read metadata (to detect replies).
+    static let gmailScopes = [
+        "https://www.googleapis.com/auth/gmail.send",
+        "https://www.googleapis.com/auth/gmail.readonly",
+    ]
+
+    /// Gmail REST base.
+    static let gmailAPIBase = "https://gmail.googleapis.com/gmail/v1/users/me"
 }

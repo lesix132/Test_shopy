@@ -30,11 +30,14 @@ struct JobTrackApp: App {
 /// App-level service container, injected via the SwiftUI environment.
 /// Keeping services here (rather than instantiating in Views) keeps Views thin
 /// and makes the Claude/Keychain dependencies swappable in previews/tests.
+@MainActor
 @Observable
 final class AppServices {
     let keychain: SecretStore
     let claude: ClaudeService
     let jobFeed: JobFeedService
+    let googleAuth: GoogleOAuthService
+    let gmail: GmailService
 
     init(
         keychain: SecretStore? = nil,
@@ -45,5 +48,8 @@ final class AppServices {
         self.keychain = store
         self.claude = claude ?? ClaudeAPIService(secretStore: store)
         self.jobFeed = jobFeed ?? JobFeedNetworkService(secretStore: store)
+        let auth = GoogleOAuthService(secretStore: store)
+        self.googleAuth = auth
+        self.gmail = GmailService(oauth: auth)
     }
 }
