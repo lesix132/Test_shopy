@@ -40,6 +40,19 @@ final class JobOffer {
     /// Share-Extension imports start with this = true.
     var needsParsing: Bool
 
+    // MARK: Follow-up tracking
+
+    /// When the application was sent (nil if not applied yet).
+    var appliedAt: Date?
+    /// Last time you contacted / followed up with the recruiter.
+    var lastContactAt: Date?
+    /// After how many days without a reply a follow-up is suggested.
+    var followUpAfterDays: Int
+    /// Whether the recruiter has replied (stops follow-up suggestions).
+    var hasReply: Bool
+    /// Recruiter email, used to pre-fill application / follow-up messages.
+    var contactEmail: String?
+
     /// Generated cover letters for this offer.
     @Relationship(deleteRule: .cascade, inverse: \CoverLetter.offer)
     var coverLetters: [CoverLetter]
@@ -57,7 +70,12 @@ final class JobOffer {
         tags: [String] = [],
         matchScore: Int? = nil,
         rawImportText: String? = nil,
-        needsParsing: Bool = false
+        needsParsing: Bool = false,
+        appliedAt: Date? = nil,
+        lastContactAt: Date? = nil,
+        followUpAfterDays: Int = 7,
+        hasReply: Bool = false,
+        contactEmail: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -72,7 +90,33 @@ final class JobOffer {
         self.matchScore = matchScore
         self.rawImportText = rawImportText
         self.needsParsing = needsParsing
+        self.appliedAt = appliedAt
+        self.lastContactAt = lastContactAt
+        self.followUpAfterDays = followUpAfterDays
+        self.hasReply = hasReply
+        self.contactEmail = contactEmail
         self.coverLetters = []
+    }
+
+    // MARK: Follow-up logic
+
+    /// Date from which the follow-up delay is counted: last contact, else the
+    /// application date, else (for an applied offer) when it was added.
+    var followUpBaseDate: Date? {
+        if let lastContactAt { return lastContactAt }
+        if let appliedAt { return appliedAt }
+        return status == .applied ? dateAdded : nil
+    }
+
+    /// The date a follow-up becomes due, if any.
+    func nextFollowUpDate() -> Date? {
+        followUpBaseDate?.addingTimeInterval(Double(followUpAfterDays) * 86_400)
+    }
+
+    /// Whether a follow-up is due: applied, no reply yet, and the delay elapsed.
+    func needsFollowUp(asOf now: Date = .now) -> Bool {
+        guard status == .applied, !hasReply, let due = nextFollowUpDate() else { return false }
+        return now >= due
     }
 
     /// Type-safe accessor over `statusRaw`.

@@ -16,6 +16,9 @@ struct RootView: View {
             FeedView()
                 .tabItem { Label("Fil", systemImage: "dot.radiowaves.left.and.right") }
 
+            FollowUpsView()
+                .tabItem { Label("Relances", systemImage: "bell.badge") }
+
             ResumeListView()
                 .tabItem { Label("CV", systemImage: "doc.text") }
 

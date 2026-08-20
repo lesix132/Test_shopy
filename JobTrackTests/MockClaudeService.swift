@@ -52,4 +52,17 @@ final class MockClaudeService: ClaudeService {
     ) async throws -> FeedAnalysis {
         try analysisResult.get()
     }
+
+    var emailResult: Result<EmailDraft, Error> = .success(
+        EmailDraft(subject: "Candidature", body: "Madame, Monsieur, …")
+    )
+
+    func generateEmail(
+        kind: EmailKind,
+        offer: JobOffer,
+        resumeText: String?,
+        tone: LetterTone
+    ) async throws -> EmailDraft {
+        try emailResult.get()
+    }
 }

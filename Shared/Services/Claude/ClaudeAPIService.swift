@@ -29,6 +29,14 @@ protocol ClaudeService {
         summary: String,
         resumeText: String?
     ) async throws -> FeedAnalysis
+
+    /// Write an application or follow-up email (subject + body) for an offer.
+    func generateEmail(
+        kind: EmailKind,
+        offer: JobOffer,
+        resumeText: String?,
+        tone: LetterTone
+    ) async throws -> EmailDraft
 }
 
 /// Live implementation calling the Anthropic Messages API.
@@ -210,6 +218,59 @@ struct ClaudeAPIService: ClaudeService {
             tags: dto.tags ?? [],
             matchScore: wantsScore ? score : nil
         )
+    }
+
+    func generateEmail(
+        kind: EmailKind,
+        offer: JobOffer,
+        resumeText: String?,
+        tone: LetterTone
+    ) async throws -> EmailDraft {
+        let intent: String
+        switch kind {
+        case .application:
+            intent = """
+            Rédige un e-mail de candidature concis et professionnel pour postuler \
+            à cette offre. Mets en avant l'adéquation entre le profil et le poste.
+            """
+        case .followUp:
+            intent = """
+            Rédige un e-mail de relance poli et bref : le candidat a déjà postulé \
+            mais n'a pas eu de réponse. Rappelle sa candidature, réaffirme son \
+            intérêt, et demande courtoisement des nouvelles. N'invente pas de dates.
+            """
+        }
+        let system = """
+        Tu rédiges des e-mails en français pour une recherche d'emploi. \(intent) \
+        Adopte \(tone.promptHint). Ne mens jamais et ne t'appuie que sur le CV \
+        fourni. Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour :
+        {"subject": "...", "body": "..."}
+        Le body se termine par une formule de politesse et un espace pour la \
+        signature. N'inclus pas de champs À/De.
+        """
+        var userContent = """
+        === OFFRE ===
+        Intitulé : \(offer.title)
+        Entreprise : \(offer.company)
+        Lieu : \(offer.location)
+        Description :
+        \(offer.descriptionText)
+        """
+        if let resumeText, !resumeText.trimmingCharacters(in: .whitespaces).isEmpty {
+            userContent += "\n\n=== CV ===\n\(resumeText)"
+        }
+
+        let text = try await send(
+            system: system,
+            userContent: userContent,
+            maxTokens: 1536,
+            temperature: 0.6
+        )
+        guard let draft: EmailDraft = decodeJSON(from: text),
+              !draft.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw ClaudeError.decoding
+        }
+        return draft
     }
 
     // MARK: - Networking
