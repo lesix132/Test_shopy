@@ -16,6 +16,30 @@ A native **iOS 17+ / macOS 14+** SwiftUI app to organize your job search:
 > - **Paste text / URL** — paste the raw offer text and let Claude parse it (title, company, location, description)
 > - **Screenshot + OCR** — paste a screenshot and extract the text with the Vision framework
 
+## Nouveautés
+
+- **Fil** : traduction FR automatique et **analyse IA** de chaque offre (résumé,
+  tags, score CV). Sources **France Travail** + **Adzuna** (alternative légale à
+  LinkedIn/Indeed) avec filtre mots-clés (défaut : `nucléaire`).
+- **Relances** : suivi des candidatures, détection « pas de réponse depuis
+  N jours », **notifications** locales, e-mails de candidature/relance rédigés
+  par Claude, envoi via **Gmail** ou ta messagerie, et détection des réponses.
+
+### Configurer les clés (toutes gratuites, dans **Réglages**)
+
+| Service | Où créer la clé | Ce qu'on stocke (Keychain) |
+|---|---|---|
+| **Anthropic** | console.anthropic.com | clé API |
+| **France Travail** | francetravail.io (espace développeur, API « Offres d'emploi v2 ») | client id + secret |
+| **Adzuna** | developer.adzuna.com | app_id + app_key |
+| **Gmail** | console.cloud.google.com → identifiant OAuth **type iOS**, API Gmail activée, scopes `gmail.send` + `gmail.readonly` | client id + jetons OAuth |
+
+Après avoir saisi les clés France Travail / Adzuna, **active la source** dans
+**Fil → Sources**. Pour Gmail, **Réglages → Connecter Gmail**.
+
+> Gmail via OAuth (PKCE) : aucun mot de passe stocké, seulement un jeton
+> sécurisé dans le Keychain. L'app n'envoie jamais rien sans ton action.
+
 ## Feed tab ("Fil")
 
 A refreshing in-app feed of job postings, sourced **only from public, legitimate
