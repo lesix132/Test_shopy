@@ -26,9 +26,12 @@ enum SharedModelContainer {
             let storeURL = groupURL.appending(path: "JobTrack.sqlite")
             configuration = ModelConfiguration(schema: schema, url: storeURL)
         } else {
-            // App Group not available — use the default local store.
-            assertionFailure("App Group \(AppConfig.appGroupID) is not configured; "
-                             + "data will not be shared with the Share Extension.")
+            // App Group not available (capability not yet configured, running in
+            // CI without signing, or in previews). Degrade gracefully to a local
+            // store instead of trapping — the Share Extension just won't share
+            // data until App Groups are enabled in Xcode (see SETUP.md).
+            print("⚠️ App Group \(AppConfig.appGroupID) is not configured; "
+                  + "using a local store. Data will not be shared with the Share Extension.")
             configuration = ModelConfiguration(schema: schema)
         }
 
