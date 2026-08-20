@@ -12,7 +12,7 @@ struct EmailDraftSheet: View {
     let onClose: () -> Void
 
     @State private var subject: String
-    @State private var body: String
+    @State private var messageBody: String
     @State private var to: String
     @State private var copied = false
 
@@ -22,7 +22,7 @@ struct EmailDraftSheet: View {
         self.onSent = onSent
         self.onClose = onClose
         _subject = State(initialValue: draft.subject)
-        _body = State(initialValue: draft.body)
+        _messageBody = State(initialValue: draft.body)
         _to = State(initialValue: recipient ?? "")
     }
 
@@ -41,7 +41,7 @@ struct EmailDraftSheet: View {
                     TextField("Objet", text: $subject)
                 }
                 Section("Message") {
-                    TextEditor(text: $body)
+                    TextEditor(text: $messageBody)
                         .frame(minHeight: 220)
                         .font(.body)
                 }
@@ -85,7 +85,7 @@ struct EmailDraftSheet: View {
         components.path = to.trimmingCharacters(in: .whitespacesAndNewlines)
         components.queryItems = [
             URLQueryItem(name: "subject", value: subject),
-            URLQueryItem(name: "body", value: body),
+            URLQueryItem(name: "body", value: messageBody),
         ]
         if let url = components.url {
             openURL(url)
@@ -93,7 +93,7 @@ struct EmailDraftSheet: View {
     }
 
     private func copyToClipboard() {
-        let text = "Objet : \(subject)\n\n\(body)"
+        let text = "Objet : \(subject)\n\n\(messageBody)"
         #if os(iOS)
         UIPasteboard.general.string = text
         #elseif os(macOS)
