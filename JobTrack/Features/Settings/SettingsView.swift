@@ -39,6 +39,7 @@ struct SettingsView: View {
         @Bindable var vm = vm
         Form {
             apiSection(vm)
+            frenchSourcesSection(vm)
             dataSection(vm)
             aboutSection
             if let message = vm.statusMessage {
@@ -85,6 +86,66 @@ struct SettingsView: View {
             Text("Clé API")
         } footer: {
             Text("La clé est stockée de façon sécurisée dans le Keychain, jamais en clair. Obtenez-en une sur console.anthropic.com. Modèle utilisé : \(AppConfig.claudeModel).")
+        }
+    }
+
+    @ViewBuilder
+    private func frenchSourcesSection(_ vm: SettingsViewModel) -> some View {
+        @Bindable var vm = vm
+        Section {
+            // France Travail
+            HStack {
+                Image(systemName: vm.hasFranceTravail ? "checkmark.seal.fill" : "seal")
+                    .foregroundStyle(vm.hasFranceTravail ? .green : .secondary)
+                Text("France Travail").font(.subheadline.weight(.medium))
+            }
+            if !vm.hasFranceTravail {
+                TextField("Identifiant client", text: $vm.ftClientIDInput)
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    #endif
+                SecureField("Clé secrète client", text: $vm.ftClientSecretInput)
+                Button("Enregistrer France Travail") { vm.saveFranceTravail() }
+                    .disabled(vm.ftClientIDInput.trimmingCharacters(in: .whitespaces).isEmpty
+                              || vm.ftClientSecretInput.trimmingCharacters(in: .whitespaces).isEmpty)
+            } else {
+                Button("Supprimer les clés France Travail", role: .destructive) {
+                    vm.deleteFranceTravail()
+                }
+            }
+
+            Divider()
+
+            // Adzuna
+            HStack {
+                Image(systemName: vm.hasAdzuna ? "checkmark.seal.fill" : "seal")
+                    .foregroundStyle(vm.hasAdzuna ? .green : .secondary)
+                Text("Adzuna").font(.subheadline.weight(.medium))
+            }
+            if !vm.hasAdzuna {
+                TextField("app_id", text: $vm.adzunaAppIDInput)
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    #endif
+                SecureField("app_key", text: $vm.adzunaAppKeyInput)
+                Button("Enregistrer Adzuna") { vm.saveAdzuna() }
+                    .disabled(vm.adzunaAppIDInput.trimmingCharacters(in: .whitespaces).isEmpty
+                              || vm.adzunaAppKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
+            } else {
+                Button("Supprimer les clés Adzuna", role: .destructive) {
+                    vm.deleteAdzuna()
+                }
+            }
+        } header: {
+            Text("Sources France (offres FR)")
+        } footer: {
+            Text("Alternative légale à LinkedIn/Indeed. Clés gratuites : "
+                 + "France Travail sur francetravail.io (espace développeur), "
+                 + "Adzuna sur developer.adzuna.com. Une fois enregistrées, active "
+                 + "la source dans l'onglet Fil → Sources, et règle les mots-clés "
+                 + "(défaut : « \(AppConfig.defaultFeedQuery) »).")
         }
     }
 

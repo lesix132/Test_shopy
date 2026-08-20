@@ -44,6 +44,6 @@ final class AppServices {
         let store = keychain ?? KeychainService()
         self.keychain = store
         self.claude = claude ?? ClaudeAPIService(secretStore: store)
-        self.jobFeed = jobFeed ?? JobFeedNetworkService()
+        self.jobFeed = jobFeed ?? JobFeedNetworkService(secretStore: store)
     }
 }

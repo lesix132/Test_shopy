@@ -11,6 +11,16 @@ final class SettingsViewModel {
     var isError = false
     var isTesting = false
 
+    // France Travail credentials
+    var ftClientIDInput = ""
+    var ftClientSecretInput = ""
+    var hasFranceTravail = false
+
+    // Adzuna credentials
+    var adzunaAppIDInput = ""
+    var adzunaAppKeyInput = ""
+    var hasAdzuna = false
+
     private let secretStore: SecretStore
     private let claude: ClaudeService
 
@@ -22,6 +32,56 @@ final class SettingsViewModel {
 
     func refreshKeyState() {
         hasStoredKey = secretStore.anthropicAPIKey() != nil
+        hasFranceTravail = secretStore.value(AppConfig.franceTravailClientIDAccount) != nil
+            && secretStore.value(AppConfig.franceTravailClientSecretAccount) != nil
+        hasAdzuna = secretStore.value(AppConfig.adzunaAppIDAccount) != nil
+            && secretStore.value(AppConfig.adzunaAppKeyAccount) != nil
+    }
+
+    // MARK: - France Travail / Adzuna credentials
+
+    func saveFranceTravail() {
+        let id = ftClientIDInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let secret = ftClientSecretInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !id.isEmpty, !secret.isEmpty else { return }
+        do {
+            try secretStore.save(id, account: AppConfig.franceTravailClientIDAccount)
+            try secretStore.save(secret, account: AppConfig.franceTravailClientSecretAccount)
+            ftClientIDInput = ""; ftClientSecretInput = ""
+            hasFranceTravail = true
+            show("Clés France Travail enregistrées. Active la source dans le Fil.", error: false)
+        } catch {
+            show(error.localizedDescription, error: true)
+        }
+    }
+
+    func deleteFranceTravail() {
+        try? secretStore.delete(account: AppConfig.franceTravailClientIDAccount)
+        try? secretStore.delete(account: AppConfig.franceTravailClientSecretAccount)
+        hasFranceTravail = false
+        show("Clés France Travail supprimées.", error: false)
+    }
+
+    func saveAdzuna() {
+        let id = adzunaAppIDInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let key = adzunaAppKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !id.isEmpty, !key.isEmpty else { return }
+        do {
+            try secretStore.save(id, account: AppConfig.adzunaAppIDAccount)
+            try secretStore.save(key, account: AppConfig.adzunaAppKeyAccount)
+            adzunaAppIDInput = ""; adzunaAppKeyInput = ""
+            hasAdzuna = true
+            show("Clés Adzuna enregistrées. Active la source dans le Fil.", error: false)
+        } catch {
+            show(error.localizedDescription, error: true)
+        }
+    }
+
+    func deleteAdzuna() {
+        try? secretStore.delete(account: AppConfig.adzunaAppIDAccount)
+        try? secretStore.delete(account: AppConfig.adzunaAppKeyAccount)
+        hasAdzuna = false
+        show("Clés Adzuna supprimées.", error: false)
     }
 
     func saveKey() {

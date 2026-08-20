@@ -36,4 +36,31 @@ enum AppConfig {
 
     /// Request timeout (seconds) for Claude calls.
     static let requestTimeout: TimeInterval = 60
+
+    // MARK: French job-board APIs (legal alternatives to LinkedIn/Indeed)
+
+    /// Default keyword filter applied to the France Travail / Adzuna searches.
+    static let defaultFeedQuery = "nucléaire"
+
+    /// Keychain accounts for the France Travail (ex-Pôle Emploi) API credentials.
+    static let franceTravailClientIDAccount = "francetravail.client.id"
+    static let franceTravailClientSecretAccount = "francetravail.client.secret"
+
+    /// Keychain accounts for the Adzuna API credentials.
+    static let adzunaAppIDAccount = "adzuna.app.id"
+    static let adzunaAppKeyAccount = "adzuna.app.key"
+
+    /// France Travail OAuth2 (client_credentials) token endpoint.
+    static let franceTravailTokenEndpoint = URL(
+        string: "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=%2Fpartenaire"
+    )!
+    /// France Travail "Offres d'emploi v2" search endpoint.
+    static let franceTravailSearchEndpoint = URL(
+        string: "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search"
+    )!
+    /// OAuth scope required for the offers API.
+    static let franceTravailScope = "api_offresdemploiv2 o2dsoffre"
+
+    /// Adzuna France search endpoint (page 1).
+    static let adzunaSearchBase = "https://api.adzuna.com/v1/api/jobs/fr/search/1"
 }

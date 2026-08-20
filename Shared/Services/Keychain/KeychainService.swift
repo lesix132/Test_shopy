@@ -98,7 +98,12 @@ struct KeychainService: SecretStore {
 extension SecretStore {
     /// Reads the stored Anthropic API key, if any.
     func anthropicAPIKey() -> String? {
-        (try? read(account: AppConfig.apiKeyKeychainAccount))?
+        value(AppConfig.apiKeyKeychainAccount)
+    }
+
+    /// Reads a stored secret by account, trimmed and nil if empty/absent.
+    func value(_ account: String) -> String? {
+        (try? read(account: account))?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .nilIfEmpty
     }

@@ -174,6 +174,13 @@ final class FeedViewModel {
         persist()
     }
 
+    /// Update the keyword filter of an API source (France Travail / Adzuna).
+    func updateQuery(_ source: FeedSource, to query: String) {
+        guard let index = sources.firstIndex(where: { $0.id == source.id }) else { return }
+        sources[index].query = query.nilIfEmpty
+        persist()
+    }
+
     func resetToDefaults() {
         sources = FeedSource.defaults
         persist()

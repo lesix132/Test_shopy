@@ -17,8 +17,10 @@ protocol JobFeedService {
 struct JobFeedNetworkService: JobFeedService {
 
     private let session: URLSession
+    private let secretStore: SecretStore
 
-    init(session: URLSession = .shared) {
+    init(secretStore: SecretStore, session: URLSession = .shared) {
+        self.secretStore = secretStore
         self.session = session
     }
 
@@ -59,6 +61,11 @@ struct JobFeedNetworkService: JobFeedService {
     // MARK: - Per-source fetch
 
     private func fetchOne(_ source: FeedSource) async -> Result<[FeedItem], FeedSourceError> {
+        // Credential-based API sources run their own request flow.
+        if source.requiresCredentials {
+            return await fetchAPI(source)
+        }
+
         guard let url = source.url else {
             return .failure(FeedSourceError(source: source.name, reason: "URL invalide"))
         }
@@ -79,6 +86,45 @@ struct JobFeedNetworkService: JobFeedService {
             case .remotiveJSON: items = try RemotiveDecoder.decode(data: data, sourceName: source.name)
             }
             return .success(items)
+        } catch {
+            return .failure(FeedSourceError(source: source.name, reason: friendly(error)))
+        }
+    }
+
+    /// Handles France Travail / Adzuna, reading credentials from the Keychain.
+    private func fetchAPI(_ source: FeedSource) async -> Result<[FeedItem], FeedSourceError> {
+        let query = source.query ?? AppConfig.defaultFeedQuery
+        do {
+            switch source.kind {
+            case .franceTravail:
+                guard let id = secretStore.value(AppConfig.franceTravailClientIDAccount),
+                      let secret = secretStore.value(AppConfig.franceTravailClientSecretAccount) else {
+                    return .failure(FeedSourceError(source: source.name,
+                                                    reason: "clés manquantes (Réglages)"))
+                }
+                let items = try await FranceTravailClient.fetch(
+                    query: query,
+                    credentials: .init(clientID: id, clientSecret: secret),
+                    sourceName: source.name, session: session)
+                return .success(items)
+
+            case .adzuna:
+                guard let id = secretStore.value(AppConfig.adzunaAppIDAccount),
+                      let key = secretStore.value(AppConfig.adzunaAppKeyAccount) else {
+                    return .failure(FeedSourceError(source: source.name,
+                                                    reason: "clés manquantes (Réglages)"))
+                }
+                let items = try await AdzunaClient.fetch(
+                    query: query,
+                    credentials: .init(appID: id, appKey: key),
+                    sourceName: source.name, session: session)
+                return .success(items)
+
+            default:
+                return .failure(FeedSourceError(source: source.name, reason: "type non géré"))
+            }
+        } catch let error as FeedSourceError {
+            return .failure(error)
         } catch {
             return .failure(FeedSourceError(source: source.name, reason: friendly(error)))
         }

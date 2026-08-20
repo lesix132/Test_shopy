@@ -20,10 +20,12 @@ struct FeedItem: Identifiable, Hashable, Sendable {
 /// user can add their own RSS/Atom URLs (e.g. a company career-page feed).
 struct FeedSource: Identifiable, Hashable, Codable, Sendable {
 
-    /// How the source's payload is parsed.
+    /// How the source's payload is parsed / fetched.
     enum Kind: String, Codable, Sendable {
         case rss            // generic RSS/Atom (universal)
         case remotiveJSON   // Remotive public JSON API (https://remotive.com/api)
+        case franceTravail  // France Travail (ex-Pôle Emploi) official API
+        case adzuna         // Adzuna France public API
     }
 
     var id: UUID
@@ -31,26 +33,55 @@ struct FeedSource: Identifiable, Hashable, Codable, Sendable {
     var urlString: String
     var kind: Kind
     var isEnabled: Bool
+    /// Keyword filter for keyword-based API sources (France Travail, Adzuna).
+    /// Ignored by RSS/JSON feed sources.
+    var query: String?
 
     init(
         id: UUID = UUID(),
         name: String,
         urlString: String,
         kind: Kind = .rss,
-        isEnabled: Bool = true
+        isEnabled: Bool = true,
+        query: String? = nil
     ) {
         self.id = id
         self.name = name
         self.urlString = urlString
         self.kind = kind
         self.isEnabled = isEnabled
+        self.query = query
     }
 
     var url: URL? { URL(string: urlString) }
 
+    /// True for API sources that need credentials (entered in Réglages).
+    var requiresCredentials: Bool {
+        kind == .franceTravail || kind == .adzuna
+    }
+
+    /// True for keyword-based API sources whose `query` is used.
+    var usesQuery: Bool { requiresCredentials }
+
     /// Built-in public sources that permit programmatic access.
-    /// All are *public job boards* — none is LinkedIn, and none requires login.
+    /// All are *public job boards* — none is LinkedIn or Indeed, none requires
+    /// scraping. The France/Indeed alternatives (France Travail, Adzuna) are
+    /// disabled until you add their free API keys in Réglages.
     static let defaults: [FeedSource] = [
+        FeedSource(
+            name: "France Travail",
+            urlString: "https://francetravail.io",
+            kind: .franceTravail,
+            isEnabled: false,
+            query: AppConfig.defaultFeedQuery
+        ),
+        FeedSource(
+            name: "Adzuna France",
+            urlString: "https://www.adzuna.fr",
+            kind: .adzuna,
+            isEnabled: false,
+            query: AppConfig.defaultFeedQuery
+        ),
         FeedSource(
             name: "Remotive (remote)",
             urlString: "https://remotive.com/api/remote-jobs?limit=50",

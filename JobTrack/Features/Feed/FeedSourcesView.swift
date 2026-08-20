@@ -14,16 +14,34 @@ struct FeedSourcesView: View {
             Form {
                 Section {
                     ForEach(viewModel.sources) { source in
-                        Toggle(isOn: Binding(
-                            get: { source.isEnabled },
-                            set: { _ in viewModel.toggle(source) }
-                        )) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(source.name)
-                                Text(source.urlString)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Toggle(isOn: Binding(
+                                get: { source.isEnabled },
+                                set: { _ in viewModel.toggle(source) }
+                            )) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(source.name)
+                                    Text(source.requiresCredentials
+                                         ? "API — clés dans Réglages"
+                                         : source.urlString)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            if source.usesQuery {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "magnifyingglass")
+                                        .foregroundStyle(.secondary)
+                                    TextField("Mots-clés (ex. nucléaire)", text: Binding(
+                                        get: { source.query ?? "" },
+                                        set: { viewModel.updateQuery(source, to: $0) }
+                                    ))
+                                    #if os(iOS)
+                                    .autocorrectionDisabled()
+                                    #endif
+                                }
+                                .font(.caption)
                             }
                         }
                     }
