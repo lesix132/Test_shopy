@@ -91,7 +91,9 @@ struct FeedView: View {
                 }
             }
         }
+        #if os(iOS)
         .listStyle(.insetGrouped)
+        #endif
         .searchable(text: $vm.keyword, prompt: "Filtrer le fil")
         .refreshable { await vm.refresh() }
         .overlay {
