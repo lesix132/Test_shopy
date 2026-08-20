@@ -17,6 +17,10 @@ final class FeedViewModel {
 
     /// Client-side keyword filter.
     var keyword = ""
+    /// Keep only France-based offers (seeded from the profile).
+    var franceOnly: Bool = true
+    /// Optional region filter.
+    var regionFilter: FrenchRegion?
 
     // MARK: AI (translation & analysis) caches
 
@@ -37,25 +41,49 @@ final class FeedViewModel {
     init(
         service: JobFeedService,
         claude: ClaudeService,
-        store: FeedSourceStore = FeedSourceStore()
+        store: FeedSourceStore = FeedSourceStore(),
+        profileStore: ProfileStore = ProfileStore()
     ) {
         self.service = service
         self.claude = claude
         self.store = store
         self.sources = store.load()
+        self.franceOnly = profileStore.load().franceOnly
+    }
+
+    /// Region detected from an item's location, if any.
+    func region(for item: FeedItem) -> FrenchRegion? {
+        FrenchRegion.detect(from: item.location)
     }
 
     // MARK: Derived
 
     var filteredItems: [FeedItem] {
-        let q = keyword.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !q.isEmpty else { return items }
-        return items.filter {
-            $0.title.lowercased().contains(q)
-                || $0.company.lowercased().contains(q)
-                || $0.location.lowercased().contains(q)
-                || $0.summary.lowercased().contains(q)
+        var result = items
+
+        if franceOnly {
+            result = result.filter { FrenchRegion.isLikelyFrance($0.location) }
         }
+        if let regionFilter {
+            result = result.filter { FrenchRegion.detect(from: $0.location) == regionFilter }
+        }
+
+        let q = keyword.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if !q.isEmpty {
+            result = result.filter {
+                $0.title.lowercased().contains(q)
+                    || $0.company.lowercased().contains(q)
+                    || $0.location.lowercased().contains(q)
+                    || $0.summary.lowercased().contains(q)
+            }
+        }
+        return result
+    }
+
+    /// Regions present in the currently fetched items (for the filter menu).
+    var availableRegions: [FrenchRegion] {
+        let set = Set(items.compactMap { FrenchRegion.detect(from: $0.location) })
+        return FrenchRegion.allCases.filter { set.contains($0) }
     }
 
     var hasEnabledSource: Bool { sources.contains { $0.isEnabled } }
@@ -85,6 +113,9 @@ final class FeedViewModel {
 
         var tags = [item.sourceName]
         tags.append(contentsOf: analysis?.tags ?? [])
+        if let region = FrenchRegion.detect(from: item.location) {
+            tags.append(region.rawValue)
+        }
 
         let description = [translation?.summary, analysis?.summaryFR, item.summary]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }

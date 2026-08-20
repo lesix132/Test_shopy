@@ -25,6 +25,7 @@ final class FollowUpsViewModel {
         kind: EmailKind,
         offer: JobOffer,
         resumeText: String?,
+        senderProfile: String? = nil,
         tone: LetterTone = .formal
     ) async {
         isGenerating = true
@@ -32,7 +33,8 @@ final class FollowUpsViewModel {
         defer { isGenerating = false }
         do {
             draft = try await claude.generateEmail(
-                kind: kind, offer: offer, resumeText: resumeText, tone: tone)
+                kind: kind, offer: offer, resumeText: resumeText,
+                senderProfile: senderProfile, tone: tone)
             draftOfferID = offer.id
             draftKind = kind
         } catch let error as ClaudeError {

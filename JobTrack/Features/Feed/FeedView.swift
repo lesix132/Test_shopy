@@ -110,6 +110,7 @@ struct FeedView: View {
                     ForEach(vm.filteredItems) { item in
                         FeedRow(
                             item: item,
+                            region: vm.region(for: item),
                             translation: vm.translations[item.id],
                             analysis: vm.analyses[item.id],
                             isTranslating: vm.translating.contains(item.id),
@@ -127,11 +128,32 @@ struct FeedView: View {
         .listStyle(.insetGrouped)
         #endif
         .searchable(text: $vm.keyword, prompt: "Filtrer le fil")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { filtersMenu(vm) }
+        }
         .refreshable { await vm.refresh() }
         .overlay {
             if vm.isLoading, vm.filteredItems.isEmpty {
                 ProgressView("Chargement du fil…")
             }
+        }
+    }
+
+    @ViewBuilder
+    private func filtersMenu(_ vm: FeedViewModel) -> some View {
+        @Bindable var vm = vm
+        Menu {
+            Toggle("France uniquement", isOn: $vm.franceOnly)
+            Picker("Région", selection: $vm.regionFilter) {
+                Text("Toutes les régions").tag(FrenchRegion?.none)
+                ForEach(vm.availableRegions) { region in
+                    Text(region.rawValue).tag(FrenchRegion?.some(region))
+                }
+            }
+        } label: {
+            Label("Filtres", systemImage: vm.regionFilter == nil && vm.franceOnly
+                  ? "line.3.horizontal.decrease.circle"
+                  : "line.3.horizontal.decrease.circle.fill")
         }
     }
 
@@ -181,6 +203,7 @@ struct FeedView: View {
 
 private struct FeedRow: View {
     let item: FeedItem
+    let region: FrenchRegion?
     let translation: TranslatedText?
     let analysis: FeedAnalysis?
     let isTranslating: Bool
@@ -223,6 +246,14 @@ private struct FeedRow: View {
             }
             .font(.subheadline)
             .foregroundStyle(.secondary)
+
+            if let region {
+                Label(region.rawValue, systemImage: "mappin.and.ellipse")
+                    .font(.caption2)
+                    .padding(.horizontal, 7).padding(.vertical, 3)
+                    .background(.blue.opacity(0.14), in: Capsule())
+                    .foregroundStyle(.blue)
+            }
 
             if !displaySummary.isEmpty {
                 Text(displaySummary)

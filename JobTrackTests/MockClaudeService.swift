@@ -61,6 +61,7 @@ final class MockClaudeService: ClaudeService {
         kind: EmailKind,
         offer: JobOffer,
         resumeText: String?,
+        senderProfile: String?,
         tone: LetterTone
     ) async throws -> EmailDraft {
         try emailResult.get()

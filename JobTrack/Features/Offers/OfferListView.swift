@@ -6,6 +6,7 @@ struct OfferListView: View {
     @Query private var offers: [JobOffer]
     @State private var viewModel = OfferListViewModel()
     @State private var showingAdd = false
+    @State private var linkedInMode = false
 
     private var filtered: [JobOffer] { viewModel.apply(to: offers) }
 
@@ -22,7 +23,20 @@ struct OfferListView: View {
             .searchable(text: $viewModel.searchText, prompt: "Rechercher")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button { showingAdd = true } label: {
+                    Menu {
+                        Button {
+                            linkedInMode = true
+                            showingAdd = true
+                        } label: {
+                            Label("Depuis LinkedIn (coller / partager)", systemImage: "link")
+                        }
+                        Button {
+                            linkedInMode = false
+                            showingAdd = true
+                        } label: {
+                            Label("Nouvelle offre", systemImage: "plus")
+                        }
+                    } label: {
                         Label("Ajouter", systemImage: "plus")
                     }
                 }
@@ -30,7 +44,7 @@ struct OfferListView: View {
                 ToolbarItem(placement: .secondaryAction) { filterMenu }
             }
             .sheet(isPresented: $showingAdd) {
-                AddOfferView()
+                AddOfferView(linkedInHint: linkedInMode)
             }
         }
     }

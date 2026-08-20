@@ -22,6 +22,12 @@ struct FollowUpsView: View {
         (resumes.first(where: \.isDefault) ?? resumes.first)?.extractedText
     }
 
+    /// The saved profile, reused by the AI to personalize/sign emails.
+    private var profileContext: String? {
+        let context = ProfileStore().load().promptContext
+        return context.isEmpty ? nil : context
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -111,7 +117,8 @@ struct FollowUpsView: View {
                         await vm.generate(
                             kind: due ? .followUp : .application,
                             offer: offer,
-                            resumeText: defaultResumeText)
+                            resumeText: defaultResumeText,
+                            senderProfile: profileContext)
                     }
                 } label: {
                     if vm.isGenerating {

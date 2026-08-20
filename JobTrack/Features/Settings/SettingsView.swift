@@ -41,6 +41,15 @@ struct SettingsView: View {
     private func content(_ vm: SettingsViewModel) -> some View {
         @Bindable var vm = vm
         Form {
+            Section {
+                NavigationLink {
+                    ProfileView()
+                } label: {
+                    Label("Profil (mémoire IA)", systemImage: "person.text.rectangle")
+                }
+            } footer: {
+                Text("Tes infos et ta zone géographique, réutilisées par l'IA.")
+            }
             apiSection(vm)
             frenchSourcesSection(vm)
             gmailSection(vm)

@@ -30,11 +30,13 @@ protocol ClaudeService {
         resumeText: String?
     ) async throws -> FeedAnalysis
 
-    /// Write an application or follow-up email (subject + body) for an offer.
+    /// Write an application or follow-up email (subject + body) for an offer,
+    /// personalized with the sender's profile (memory).
     func generateEmail(
         kind: EmailKind,
         offer: JobOffer,
         resumeText: String?,
+        senderProfile: String?,
         tone: LetterTone
     ) async throws -> EmailDraft
 }
@@ -224,6 +226,7 @@ struct ClaudeAPIService: ClaudeService {
         kind: EmailKind,
         offer: JobOffer,
         resumeText: String?,
+        senderProfile: String?,
         tone: LetterTone
     ) async throws -> EmailDraft {
         let intent: String
@@ -256,6 +259,9 @@ struct ClaudeAPIService: ClaudeService {
         Description :
         \(offer.descriptionText)
         """
+        if let senderProfile, !senderProfile.trimmingCharacters(in: .whitespaces).isEmpty {
+            userContent += "\n\n=== EXPÉDITEUR (utilise ces infos pour la signature) ===\n\(senderProfile)"
+        }
         if let resumeText, !resumeText.trimmingCharacters(in: .whitespaces).isEmpty {
             userContent += "\n\n=== CV ===\n\(resumeText)"
         }
