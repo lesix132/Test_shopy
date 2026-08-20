@@ -47,9 +47,10 @@ final class JobOffer {
     /// Last time you contacted / followed up with the recruiter.
     var lastContactAt: Date?
     /// After how many days without a reply a follow-up is suggested.
-    var followUpAfterDays: Int
+    /// Inline default keeps SwiftData lightweight migration working.
+    var followUpAfterDays: Int = 7
     /// Whether the recruiter has replied (stops follow-up suggestions).
-    var hasReply: Bool
+    var hasReply: Bool = false
     /// Recruiter email, used to pre-fill application / follow-up messages.
     var contactEmail: String?
 

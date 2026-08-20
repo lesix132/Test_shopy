@@ -19,26 +19,44 @@ enum SharedModelContainer {
     /// or if the capability isn't configured yet, though the Share Extension
     /// then won't share data.
     static func make() -> ModelContainer {
-        let configuration: ModelConfiguration
-
-        if let groupURL = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: AppConfig.appGroupID) {
-            let storeURL = groupURL.appending(path: "JobTrack.sqlite")
-            configuration = ModelConfiguration(schema: schema, url: storeURL)
-        } else {
-            // App Group not available (capability not yet configured, running in
-            // CI without signing, or in previews). Degrade gracefully to a local
-            // store instead of trapping — the Share Extension just won't share
-            // data until App Groups are enabled in Xcode (see SETUP.md).
-            print("⚠️ App Group \(AppConfig.appGroupID) is not configured; "
-                  + "using a local store. Data will not be shared with the Share Extension.")
-            configuration = ModelConfiguration(schema: schema)
-        }
+        let storeURL = resolveStoreURL()
+        let configuration = ModelConfiguration(schema: schema, url: storeURL)
 
         do {
             return try ModelContainer(for: schema, configurations: [configuration])
         } catch {
-            fatalError("Failed to create ModelContainer: \(error)")
+            // The most common cause is a store left by a previous version whose
+            // schema no longer matches (a migration that can't be done
+            // automatically). Reset the local store once and retry so the app
+            // launches instead of crashing. Existing local data is discarded.
+            print("⚠️ ModelContainer failed (\(error)); resetting local store.")
+            deleteStore(at: storeURL)
+            do {
+                return try ModelContainer(for: schema, configurations: [configuration])
+            } catch {
+                fatalError("Failed to create ModelContainer after reset: \(error)")
+            }
+        }
+    }
+
+    /// The store location: the App Group container when available (so the Share
+    /// Extension shares data), otherwise Application Support.
+    private static func resolveStoreURL() -> URL {
+        if let groupURL = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: AppConfig.appGroupID) {
+            return groupURL.appending(path: "JobTrack.sqlite")
+        }
+        let base = (try? FileManager.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask,
+            appropriateFor: nil, create: true)) ?? FileManager.default.temporaryDirectory
+        return base.appending(path: "JobTrack.sqlite")
+    }
+
+    /// Removes the SwiftData store and its sidecar files.
+    private static func deleteStore(at url: URL) {
+        let fm = FileManager.default
+        for path in [url.path, url.path + "-wal", url.path + "-shm"] {
+            try? fm.removeItem(atPath: path)
         }
     }
 }
