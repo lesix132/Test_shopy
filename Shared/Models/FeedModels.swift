@@ -72,3 +72,17 @@ struct FeedFetchResult: Sendable {
 
     static let empty = FeedFetchResult(items: [], failures: [])
 }
+
+/// A feed item's title/summary translated to French by Claude.
+struct TranslatedText: Sendable, Hashable, Codable {
+    var title: String
+    var summary: String
+}
+
+/// Claude's automatic analysis of a feed item: a short French summary,
+/// suggested tags, and (when a CV is available) a 0–100 match score.
+struct FeedAnalysis: Sendable, Hashable, Codable {
+    var summaryFR: String
+    var tags: [String]
+    var matchScore: Int?
+}

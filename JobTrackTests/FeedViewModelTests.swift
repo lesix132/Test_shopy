@@ -32,7 +32,7 @@ final class FeedViewModelTests: XCTestCase {
 
     func testRefreshPopulatesItems() async {
         let service = MockJobFeedService(result: FeedFetchResult(items: makeItems(), failures: []))
-        let vm = FeedViewModel(service: service)
+        let vm = FeedViewModel(service: service, claude: MockClaudeService())
         await vm.refresh()
         XCTAssertEqual(vm.items.count, 2)
         XCTAssertTrue(vm.hasLoadedOnce)
@@ -41,7 +41,7 @@ final class FeedViewModelTests: XCTestCase {
 
     func testKeywordFiltersItems() async {
         let service = MockJobFeedService(result: FeedFetchResult(items: makeItems(), failures: []))
-        let vm = FeedViewModel(service: service)
+        let vm = FeedViewModel(service: service, claude: MockClaudeService())
         await vm.refresh()
         vm.keyword = "swiftui"
         XCTAssertEqual(vm.filteredItems.map(\.company), ["ACME"])
@@ -49,7 +49,7 @@ final class FeedViewModelTests: XCTestCase {
 
     func testMakeOfferMapsFields() async {
         let service = MockJobFeedService(result: .empty)
-        let vm = FeedViewModel(service: service)
+        let vm = FeedViewModel(service: service, claude: MockClaudeService())
         let item = makeItems()[0]
         let offer = vm.makeOffer(from: item)
         XCTAssertEqual(offer.title, "iOS Engineer")
@@ -61,9 +61,31 @@ final class FeedViewModelTests: XCTestCase {
 
     func testLoadIfNeededFetchesOnlyOnce() async {
         let service = MockJobFeedService(result: .empty)
-        let vm = FeedViewModel(service: service)
+        let vm = FeedViewModel(service: service, claude: MockClaudeService())
         await vm.loadIfNeeded()
         await vm.loadIfNeeded()
         XCTAssertEqual(service.fetchCallCount, 1)
+    }
+
+    func testAnalyzeEnrichesSavedOffer() async {
+        let service = MockJobFeedService(result: FeedFetchResult(items: makeItems(), failures: []))
+        let vm = FeedViewModel(service: service, claude: MockClaudeService())
+        await vm.refresh()
+        let item = vm.items[0]
+        await vm.analyze(item, resumeText: "CV")
+        XCTAssertEqual(vm.analyses[item.id]?.matchScore, 80)
+
+        let offer = vm.makeOffer(from: item)
+        XCTAssertEqual(offer.matchScore, 80)
+        XCTAssertTrue(offer.tags.contains("swift"))
+    }
+
+    func testTranslateIsCached() async {
+        let service = MockJobFeedService(result: FeedFetchResult(items: makeItems(), failures: []))
+        let vm = FeedViewModel(service: service, claude: MockClaudeService())
+        await vm.refresh()
+        let item = vm.items[0]
+        await vm.translate(item)
+        XCTAssertEqual(vm.translations[item.id]?.title, "Ingénieur")
     }
 }

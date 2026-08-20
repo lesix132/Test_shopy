@@ -32,4 +32,24 @@ final class MockClaudeService: ClaudeService {
     func matchScore(resumeText: String, offer: JobOffer) async throws -> Int {
         try scoreResult.get()
     }
+
+    var translateResult: Result<TranslatedText, Error> = .success(
+        TranslatedText(title: "Ingénieur", summary: "Résumé en français")
+    )
+    var analysisResult: Result<FeedAnalysis, Error> = .success(
+        FeedAnalysis(summaryFR: "Résumé", tags: ["swift"], matchScore: 80)
+    )
+
+    func translateToFrench(title: String, summary: String) async throws -> TranslatedText {
+        try translateResult.get()
+    }
+
+    func analyzeFeedItem(
+        title: String,
+        company: String,
+        summary: String,
+        resumeText: String?
+    ) async throws -> FeedAnalysis {
+        try analysisResult.get()
+    }
 }

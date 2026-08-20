@@ -17,6 +17,18 @@ protocol ClaudeService {
 
     /// Compute a 0–100 match score between a CV and an offer.
     func matchScore(resumeText: String, offer: JobOffer) async throws -> Int
+
+    /// Translate a feed item's title and summary to French.
+    func translateToFrench(title: String, summary: String) async throws -> TranslatedText
+
+    /// Analyze a feed item: French summary, tags, and (if a CV is given) a
+    /// 0–100 match score.
+    func analyzeFeedItem(
+        title: String,
+        company: String,
+        summary: String,
+        resumeText: String?
+    ) async throws -> FeedAnalysis
 }
 
 /// Live implementation calling the Anthropic Messages API.
@@ -131,6 +143,75 @@ struct ClaudeAPIService: ClaudeService {
         return min(100, max(0, value))
     }
 
+    func translateToFrench(title: String, summary: String) async throws -> TranslatedText {
+        // Already French? Still safe to send; Claude returns it unchanged.
+        let system = """
+        Tu es un traducteur professionnel. Traduis en français le titre et le \
+        résumé d'une offre d'emploi. Si le texte est déjà en français, renvoie-le \
+        tel quel. Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour :
+        {"title": "...", "summary": "..."}
+        Conserve le sens, garde les noms propres et les technologies inchangés.
+        """
+        let userContent = """
+        Titre : \(title)
+        Résumé : \(summary)
+        """
+        let text = try await send(
+            system: system,
+            userContent: userContent,
+            maxTokens: 1024,
+            temperature: 0
+        )
+        guard let result: TranslatedText = decodeJSON(from: text) else {
+            throw ClaudeError.decoding
+        }
+        return result
+    }
+
+    func analyzeFeedItem(
+        title: String,
+        company: String,
+        summary: String,
+        resumeText: String?
+    ) async throws -> FeedAnalysis {
+        let wantsScore = (resumeText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
+        let system = """
+        Tu analyses une offre d'emploi pour un candidat. Réponds UNIQUEMENT avec \
+        un objet JSON valide, sans texte autour, au format exact :
+        {"summary_fr": "...", "tags": ["...", "..."], "match_score": \(wantsScore ? "0-100" : "null")}
+        - summary_fr : un résumé clair en français (2 à 3 phrases : poste, missions clés, profil recherché).
+        - tags : 3 à 6 mots-clés courts (technologies, secteur, séniorité).
+        - match_score : \(wantsScore
+            ? "un entier de 0 à 100 estimant l'adéquation entre le CV fourni et l'offre."
+            : "la valeur null (aucun CV fourni).")
+        """
+        var userContent = """
+        === OFFRE ===
+        Intitulé : \(title)
+        Entreprise : \(company)
+        Description :
+        \(summary)
+        """
+        if wantsScore, let resumeText {
+            userContent += "\n\n=== CV ===\n\(resumeText)"
+        }
+        let text = try await send(
+            system: system,
+            userContent: userContent,
+            maxTokens: 1024,
+            temperature: 0
+        )
+        guard let dto: FeedAnalysisDTO = decodeJSON(from: text) else {
+            throw ClaudeError.decoding
+        }
+        let score = dto.matchScore.map { min(100, max(0, $0)) }
+        return FeedAnalysis(
+            summaryFR: dto.summaryFr,
+            tags: dto.tags ?? [],
+            matchScore: wantsScore ? score : nil
+        )
+    }
+
     // MARK: - Networking
 
     private func send(
@@ -208,12 +289,31 @@ struct ClaudeAPIService: ClaudeService {
     /// Extracts a `ParsedOffer` from a model reply, tolerating stray prose or
     /// code fences around the JSON object.
     private func decodeParsedOffer(from text: String) -> ParsedOffer? {
+        decodeJSON(from: text)
+    }
+
+    /// Extracts and decodes any JSON object from a model reply, tolerating
+    /// stray prose or code fences around the `{ … }`.
+    private func decodeJSON<T: Decodable>(from text: String) -> T? {
         guard let start = text.firstIndex(of: "{"),
               let end = text.lastIndex(of: "}"), start < end else {
             return nil
         }
         let json = String(text[start...end])
         guard let data = json.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(ParsedOffer.self, from: data)
+        return try? JSONDecoder().decode(T.self, from: data)
+    }
+}
+
+/// Wire format for `analyzeFeedItem` (snake_case from the model).
+private struct FeedAnalysisDTO: Decodable {
+    let summaryFr: String
+    let tags: [String]?
+    let matchScore: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case summaryFr = "summary_fr"
+        case tags
+        case matchScore = "match_score"
     }
 }
