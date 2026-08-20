@@ -56,7 +56,9 @@ final class FeedViewModelTests: XCTestCase {
         XCTAssertEqual(offer.company, "ACME")
         XCTAssertEqual(offer.sourceURL, "https://example.com/1")
         XCTAssertFalse(offer.needsParsing)
-        XCTAssertEqual(offer.tags, ["Src"])
+        XCTAssertTrue(offer.tags.contains("Src"))
+        // "Remote" location → region tag "Télétravail" is added automatically.
+        XCTAssertTrue(offer.tags.contains(FrenchRegion.remote.rawValue))
     }
 
     func testLoadIfNeededFetchesOnlyOnce() async {
