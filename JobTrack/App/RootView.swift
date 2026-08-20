@@ -13,6 +13,9 @@ struct RootView: View {
             OfferListView()
                 .tabItem { Label("Offres", systemImage: "briefcase") }
 
+            FeedView()
+                .tabItem { Label("Fil", systemImage: "dot.radiowaves.left.and.right") }
+
             ResumeListView()
                 .tabItem { Label("CV", systemImage: "doc.text") }
 

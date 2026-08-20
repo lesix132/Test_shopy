@@ -16,6 +16,20 @@ A native **iOS 17+ / macOS 14+** SwiftUI app to organize your job search:
 > - **Paste text / URL** — paste the raw offer text and let Claude parse it (title, company, location, description)
 > - **Screenshot + OCR** — paste a screenshot and extract the text with the Vision framework
 
+## Feed tab ("Fil")
+
+A refreshing in-app feed of job postings, sourced **only from public, legitimate
+job boards** (RSS/Atom feeds and public JSON APIs such as Remotive and We Work
+Remotely). This is the legal alternative to a "LinkedIn feed reader": it never
+reads LinkedIn's personal feed (forbidden by their ToS, no public API), so LinkedIn
+stays on the three manual import paths above.
+
+- Pull-to-refresh, keyword filter
+- One-tap **"Enregistrer dans mes offres"** → the posting enters your JobOffer
+  pipeline (matching, cover-letter generation, statuses…)
+- **Manage sources**: toggle the built-in feeds or add your own RSS/Atom URL
+  (e.g. a company career page). Sources are stored in the App Group.
+
 ---
 
 ## Tech stack

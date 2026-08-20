@@ -34,10 +34,16 @@ struct JobTrackApp: App {
 final class AppServices {
     let keychain: SecretStore
     let claude: ClaudeService
+    let jobFeed: JobFeedService
 
-    init(keychain: SecretStore? = nil, claude: ClaudeService? = nil) {
+    init(
+        keychain: SecretStore? = nil,
+        claude: ClaudeService? = nil,
+        jobFeed: JobFeedService? = nil
+    ) {
         let store = keychain ?? KeychainService()
         self.keychain = store
         self.claude = claude ?? ClaudeAPIService(secretStore: store)
+        self.jobFeed = jobFeed ?? JobFeedNetworkService()
     }
 }
