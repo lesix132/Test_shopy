@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Shared App Group: must match AppConfig.appGroupID and the extension. -->
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.jobtrack.shared</string>
+    </array>
+
+    <!-- Keychain sharing so the API key is reachable from both targets.
+         $(AppIdentifierPrefix) resolves to <TeamID>. at build time. -->
+    <key>keychain-access-groups</key>
+    <array>
+        <string>$(AppIdentifierPrefix)com.jobtrack.shared</string>
+    </array>
+
+    <!-- macOS sandbox: outbound network for Claude + read-only file access
+         for importing PDFs. (Ignored on iOS.) -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.files.user-selected.read-only</key>
+    <true/>
+</dict>
+</plist>

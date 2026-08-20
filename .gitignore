@@ -1,0 +1,23 @@
+# Xcode / XcodeGen — the project is generated from project.yml
+JobTrack.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+build/
+.build/
+
+# macOS
+.DS_Store
+
+# Swift Package Manager
+Package.resolved
+.swiftpm/
+
+# Misc
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
