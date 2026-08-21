@@ -16,6 +16,9 @@ struct RootView: View {
             FeedView()
                 .tabItem { Label("Fil", systemImage: "dot.radiowaves.left.and.right") }
 
+            WebBrowserView()
+                .tabItem { Label("Web", systemImage: "globe") }
+
             FollowUpsView()
                 .tabItem { Label("Relances", systemImage: "bell.badge") }
 
