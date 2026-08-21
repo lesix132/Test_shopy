@@ -28,6 +28,7 @@ struct OfferDetailView: View {
 
             headerSection
             statusSection
+            followUpSection
             descriptionSection
             organizationSection
             matchSection
@@ -79,11 +80,62 @@ struct OfferDetailView: View {
         Section("Statut") {
             Picker("Statut de candidature", selection: Binding(
                 get: { offer.status },
-                set: { offer.status = $0; try? modelContext.save() }
+                set: { newStatus in
+                    offer.status = newStatus
+                    // Starting the application sets its date so follow-ups work.
+                    if newStatus == .applied, offer.appliedAt == nil {
+                        offer.appliedAt = .now
+                    }
+                    try? modelContext.save()
+                }
             )) {
                 ForEach(ApplicationStatus.allCases) { Text($0.label).tag($0) }
             }
         }
+    }
+
+    @ViewBuilder
+    private var followUpSection: some View {
+        Section {
+            TextField("Email du recruteur (pour candidature / relance)", text: Binding(
+                get: { offer.contactEmail ?? "" },
+                set: { offer.contactEmail = $0.isEmpty ? nil : $0 }
+            ))
+            #if os(iOS)
+            .textInputAutocapitalization(.never)
+            .keyboardType(.emailAddress)
+            #endif
+            .autocorrectionDisabled()
+
+            if offer.status == .applied {
+                if let applied = offer.appliedAt {
+                    LabeledContent("Candidaté le",
+                                   value: applied.formatted(date: .abbreviated, time: .omitted))
+                } else {
+                    Button("Marquer candidaté aujourd'hui") {
+                        offer.appliedAt = .now
+                        try? modelContext.save()
+                    }
+                }
+                Stepper("Relance après \(offer.followUpAfterDays) j",
+                        value: $offer.followUpAfterDays, in: 1...60)
+                Toggle("Réponse reçue", isOn: $offer.hasReply)
+            } else {
+                Button {
+                    offer.status = .applied
+                    offer.appliedAt = .now
+                    try? modelContext.save()
+                } label: {
+                    Label("Marquer comme candidaté", systemImage: "paperplane")
+                }
+            }
+        } header: {
+            Text("Suivi de candidature")
+        } footer: {
+            Text("Une candidature envoyée apparaît dans l'onglet Relances, "
+                 + "avec rappel automatique si pas de réponse.")
+        }
+        .onDisappear { try? modelContext.save() }
     }
 
     @ViewBuilder

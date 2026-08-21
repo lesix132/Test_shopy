@@ -48,13 +48,23 @@ final class CoverLetterViewModel {
         errorMessage = nil
         isGenerating = true
         defer { isGenerating = false }
+
+        // Enrich the instructions with the saved profile (memory), so the AI
+        // signs and personalizes the letter with the candidate's identity.
+        var instructions = extraInstructions
+        let profileContext = ProfileStore().load().promptContext
+        if !profileContext.isEmpty {
+            instructions += (instructions.isEmpty ? "" : "\n\n")
+                + "Signe et personnalise avec ces informations du candidat :\n\(profileContext)"
+        }
+
         do {
             content = try await claude.generateCoverLetter(
                 resumeText: resume.extractedText,
                 offer: offer,
                 tone: tone,
                 length: length,
-                extraInstructions: extraInstructions.isEmpty ? nil : extraInstructions
+                extraInstructions: instructions.isEmpty ? nil : instructions
             )
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
