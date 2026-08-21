@@ -24,11 +24,12 @@
     <key>com.apple.security.files.user-selected.read-only</key>
     <true/>
 
-    <!-- Sign in with Apple. Enable the matching capability in Xcode
-         (requires an Apple Developer team) for it to work at runtime. -->
-    <key>com.apple.developer.applesignin</key>
-    <array>
-        <string>Default</string>
-    </array>
+    <!-- NOTE: "Sign in with Apple" (com.apple.developer.applesignin) is NOT
+         declared here because free "Personal Team" Apple accounts can't
+         provision it, which would break signing. To enable it, use a paid
+         Apple Developer account and add the "Sign in with Apple" capability
+         in Xcode (Signing & Capabilities). The button in Profil then works;
+         until then it fails gracefully. "Se connecter avec Google" works on
+         any account. -->
 </dict>
 </plist>
