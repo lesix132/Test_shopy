@@ -8,14 +8,14 @@ struct AddOfferView: View {
 
     /// When set, we're finishing the import of a Share-Extension / inbox item.
     let existingOffer: JobOffer?
-    /// Shows LinkedIn-specific guidance when the user chose "Depuis LinkedIn".
-    let linkedInHint: Bool
+    /// Name of the source (LinkedIn, Indeed…) to show tailored import guidance.
+    let sourceHint: String?
 
     @State private var viewModel: AddOfferViewModel?
 
-    init(existingOffer: JobOffer? = nil, linkedInHint: Bool = false) {
+    init(existingOffer: JobOffer? = nil, sourceHint: String? = nil) {
         self.existingOffer = existingOffer
-        self.linkedInHint = linkedInHint
+        self.sourceHint = sourceHint
     }
 
     var body: some View {
@@ -54,15 +54,15 @@ struct AddOfferView: View {
     private func content(_ vm: AddOfferViewModel) -> some View {
         @Bindable var vm = vm
         Form {
-            if linkedInHint {
+            if let sourceHint {
                 Section {
                     Label {
-                        Text("Ouvre l'offre sur LinkedIn, copie son texte (ou partage-la "
-                             + "vers JobTrack), puis colle-le ci-dessous : l'IA extrait "
-                             + "le titre, l'entreprise et le lieu.")
+                        Text("Ouvre l'offre sur \(sourceHint), copie son texte (ou "
+                             + "partage-la vers JobTrack), puis colle-le ci-dessous : "
+                             + "l'IA extrait le titre, l'entreprise et le lieu.")
                             .font(.footnote).foregroundStyle(.secondary)
                     } icon: {
-                        Image(systemName: "link").foregroundStyle(.blue)
+                        Image(systemName: "square.and.arrow.down.on.square").foregroundStyle(.blue)
                     }
                 }
             }

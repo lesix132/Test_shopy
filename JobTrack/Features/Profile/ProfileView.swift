@@ -1,12 +1,16 @@
 import SwiftUI
+import AuthenticationServices
 
 /// The "Profil" screen: the memory the AI reuses, plus geographic preferences
 /// (zone, France-only, preferred regions) that filter the feed.
 struct ProfileView: View {
+    @Environment(AppServices.self) private var services
     @State private var viewModel = ProfileViewModel()
+    @State private var connectingGoogle = false
 
     var body: some View {
         Form {
+            connectSection
             identitySection
             locationSection
             searchSection
@@ -27,6 +31,42 @@ struct ProfileView: View {
             }
         }
         .navigationTitle("Profil")
+    }
+
+    @ViewBuilder
+    private var connectSection: some View {
+        Section {
+            SignInWithAppleButton(.signIn) { request in
+                request.requestedScopes = [.fullName, .email]
+            } onCompletion: { result in
+                viewModel.handleApple(result)
+            }
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: 44)
+            #if os(iOS)
+            .listRowInsets(EdgeInsets())
+            #endif
+
+            Button {
+                Task {
+                    connectingGoogle = true
+                    defer { connectingGoogle = false }
+                    try? await services.googleAuth.connect()
+                    viewModel.fillEmail(services.googleAuth.connectedAddress)
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "g.circle.fill")
+                    Text(connectingGoogle ? "Connexion…" : "Se connecter avec Google")
+                }
+            }
+            .disabled(connectingGoogle)
+        } header: {
+            Text("Connexion rapide")
+        } footer: {
+            Text("Remplit automatiquement ton nom et ton email. "
+                 + "Google réutilise la connexion Gmail.")
+        }
     }
 
     @ViewBuilder

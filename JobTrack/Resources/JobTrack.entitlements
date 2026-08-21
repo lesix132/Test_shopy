@@ -23,5 +23,12 @@
     <true/>
     <key>com.apple.security.files.user-selected.read-only</key>
     <true/>
+
+    <!-- Sign in with Apple. Enable the matching capability in Xcode
+         (requires an Apple Developer team) for it to work at runtime. -->
+    <key>com.apple.developer.applesignin</key>
+    <array>
+        <string>Default</string>
+    </array>
 </dict>
 </plist>

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import AuthenticationServices
 
 /// Edits and persists the `CandidateProfile` (the AI's memory + geo preferences).
 @MainActor
@@ -30,5 +31,33 @@ final class ProfileViewModel {
 
     func isPreferred(_ region: FrenchRegion) -> Bool {
         profile.preferredRegionsRaw.contains(region.rawValue)
+    }
+
+    // MARK: Sign in with Apple
+
+    func handleApple(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let auth):
+            guard let credential = auth.credential as? ASAuthorizationAppleIDCredential else { return }
+            if let name = credential.fullName {
+                let formatted = PersonNameComponentsFormatter().string(from: name)
+                if !formatted.isEmpty { profile.fullName = formatted }
+            }
+            if let email = credential.email, !email.isEmpty {
+                profile.email = email
+            }
+            save()
+            savedMessage = "Connecté avec Apple ✓"
+        case .failure:
+            savedMessage = "Connexion Apple annulée."
+        }
+    }
+
+    /// Fill the email from a connected Google/Gmail account.
+    func fillEmail(_ email: String?) {
+        guard let email, !email.isEmpty else { return }
+        profile.email = email
+        save()
+        savedMessage = "Connecté avec Google ✓"
     }
 }

@@ -88,13 +88,22 @@ struct WebBrowserView: View {
             }
             Spacer()
 
-            Button {
-                importCurrentPage()
+            Menu {
+                Button {
+                    importCurrentPage()
+                } label: {
+                    Label("Importer l'offre", systemImage: "square.and.arrow.down")
+                }
+                Button {
+                    fillMyInfo()
+                } label: {
+                    Label("Remplir mes infos", systemImage: "person.text.rectangle")
+                }
             } label: {
                 if importing {
                     ProgressView()
                 } else {
-                    Label("Importer l'offre", systemImage: "square.and.arrow.down")
+                    Label("Postuler", systemImage: "paperplane.fill")
                 }
             }
             .disabled(importing)
@@ -103,6 +112,18 @@ struct WebBrowserView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
         .background(.regularMaterial)
+    }
+
+    // MARK: Autofill
+
+    private func fillMyInfo() {
+        let profile = ProfileStore().load()
+        Task {
+            await model.autofillStandardFields(
+                fullName: profile.fullName, email: profile.email, phone: profile.phone)
+            importMessage = "Champs standards pré-remplis quand c'était possible. "
+                + "Vérifie et complète le formulaire, puis joins ton CV."
+        }
     }
 
     // MARK: Import

@@ -28,6 +28,7 @@ struct RootView: View {
             SettingsView()
                 .tabItem { Label("Réglages", systemImage: "gearshape") }
         }
+        .tint(.indigo)
         .task { drainInbox() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { drainInbox() }

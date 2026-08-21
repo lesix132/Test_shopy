@@ -64,6 +64,45 @@ final class WebViewModel {
         return (result as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Best-effort autofill of standard application-form fields (name, email,
+    /// phone) from the profile. Works on many sites, not all. User-initiated.
+    func autofillStandardFields(fullName: String, email: String, phone: String) async {
+        guard let webView else { return }
+        let js = """
+        (function(){
+          function setVal(el,val){ if(!el||!val) return false;
+            el.focus(); el.value = val;
+            el.dispatchEvent(new Event('input',{bubbles:true}));
+            el.dispatchEvent(new Event('change',{bubbles:true})); return true; }
+          var email = \(Self.jsString(email));
+          var name = \(Self.jsString(fullName));
+          var phone = \(Self.jsString(phone));
+          var parts = name.split(' '); var first = parts.shift()||''; var last = parts.join(' ');
+          var n = 0;
+          document.querySelectorAll('input, textarea').forEach(function(el){
+            var k = ((el.name||'')+' '+(el.id||'')+' '+(el.autocomplete||'')+' '+
+                     (el.placeholder||'')+' '+(el.type||'')).toLowerCase();
+            if(el.type==='email' || k.indexOf('email')>=0 || k.indexOf('mail')>=0){ if(setVal(el,email))n++; }
+            else if(k.indexOf('phone')>=0||k.indexOf('tel')>=0||k.indexOf('mobile')>=0){ if(setVal(el,phone))n++; }
+            else if(k.indexOf('given')>=0||k.indexOf('first')>=0||k.indexOf('prenom')>=0||k.indexOf('prénom')>=0){ if(setVal(el,first))n++; }
+            else if(k.indexOf('family')>=0||k.indexOf('last')>=0||k.indexOf('surname')>=0){ if(setVal(el,last))n++; }
+            else if(k.indexOf('fullname')>=0||k.indexOf('full-name')>=0||k.indexOf('name')>=0){ if(setVal(el,name))n++; }
+          });
+          return n;
+        })();
+        """
+        _ = try? await webView.evaluateJavaScript(js)
+    }
+
+    /// JSON-encodes a string so it can be safely embedded in JavaScript.
+    private static func jsString(_ value: String) -> String {
+        if let data = try? JSONEncoder().encode(value),
+           let json = String(data: data, encoding: .utf8) {
+            return json
+        }
+        return "\"\""
+    }
+
     // MARK: Helpers
 
     /// Turns raw input into a URL: a full URL, a bare domain, or a web search.

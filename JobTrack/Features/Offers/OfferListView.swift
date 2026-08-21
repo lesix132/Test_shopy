@@ -6,7 +6,11 @@ struct OfferListView: View {
     @Query private var offers: [JobOffer]
     @State private var viewModel = OfferListViewModel()
     @State private var showingAdd = false
-    @State private var linkedInMode = false
+    @State private var importSource: String?
+
+    /// Import sources shown in the "+" menu.
+    private let importSources = ["LinkedIn", "Indeed", "France Travail",
+                                 "Welcome to the Jungle", "APEC"]
 
     private var filtered: [JobOffer] { viewModel.apply(to: offers) }
 
@@ -24,17 +28,27 @@ struct OfferListView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
-                        Button {
-                            linkedInMode = true
-                            showingAdd = true
-                        } label: {
-                            Label("Depuis LinkedIn (coller / partager)", systemImage: "link")
+                        Section("Importer depuis") {
+                            ForEach(importSources, id: \.self) { source in
+                                Button {
+                                    importSource = source
+                                    showingAdd = true
+                                } label: {
+                                    Label(source, systemImage: "square.and.arrow.down")
+                                }
+                            }
                         }
                         Button {
-                            linkedInMode = false
+                            importSource = nil
                             showingAdd = true
                         } label: {
-                            Label("Nouvelle offre", systemImage: "plus")
+                            Label("Coller / capture (OCR)", systemImage: "doc.on.clipboard")
+                        }
+                        Button {
+                            importSource = nil
+                            showingAdd = true
+                        } label: {
+                            Label("Nouvelle offre vierge", systemImage: "plus")
                         }
                     } label: {
                         Label("Ajouter", systemImage: "plus")
@@ -44,7 +58,7 @@ struct OfferListView: View {
                 ToolbarItem(placement: .secondaryAction) { filterMenu }
             }
             .sheet(isPresented: $showingAdd) {
-                AddOfferView(linkedInHint: linkedInMode)
+                AddOfferView(sourceHint: importSource)
             }
         }
     }
