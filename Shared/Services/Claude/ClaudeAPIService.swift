@@ -30,6 +30,14 @@ protocol ClaudeService {
         resumeText: String?
     ) async throws -> FeedAnalysis
 
+    /// Analyze the current page's text against the candidate's profile + CV,
+    /// returning an overall score and a per-criterion match breakdown.
+    func analyzePageMatch(
+        pageText: String,
+        profile: String?,
+        resumeText: String?
+    ) async throws -> PageMatchAnalysis
+
     /// Write an application or follow-up email (subject + body) for an offer,
     /// personalized with the sender's profile (memory).
     func generateEmail(
@@ -277,6 +285,44 @@ struct ClaudeAPIService: ClaudeService {
             throw ClaudeError.decoding
         }
         return draft
+    }
+
+    func analyzePageMatch(
+        pageText: String,
+        profile: String?,
+        resumeText: String?
+    ) async throws -> PageMatchAnalysis {
+        let system = """
+        Tu compares une offre d'emploi (texte d'une page web) au profil d'un \
+        candidat. Identifie les principaux critères/exigences de l'offre \
+        (compétences, expérience, diplômes, localisation, langues…) et, pour \
+        CHAQUE critère, dis s'il correspond au candidat et donne un pourcentage. \
+        Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour :
+        {"overall_score": 0-100, "summary": "...", "lines": [
+          {"criterion": "...", "matches": true, "score": 0-100, "comment": "..."}
+        ]}
+        - overall_score : adéquation globale (0-100).
+        - summary : une phrase de synthèse en français.
+        - lines : un élément par critère (6 à 12 max), comment court en français.
+        Base-toi uniquement sur les infos fournies ; n'invente rien.
+        """
+        var userContent = "=== PAGE / OFFRE ===\n\(pageText.prefix(6000))"
+        if let profile, !profile.trimmingCharacters(in: .whitespaces).isEmpty {
+            userContent += "\n\n=== PROFIL ===\n\(profile)"
+        }
+        if let resumeText, !resumeText.trimmingCharacters(in: .whitespaces).isEmpty {
+            userContent += "\n\n=== CV ===\n\(resumeText)"
+        }
+        let text = try await send(
+            system: system,
+            userContent: userContent,
+            maxTokens: 2048,
+            temperature: 0
+        )
+        guard let dto: PageMatchDTO = decodeJSON(from: text) else {
+            throw ClaudeError.decoding
+        }
+        return dto.toAnalysis()
     }
 
     // MARK: - Networking

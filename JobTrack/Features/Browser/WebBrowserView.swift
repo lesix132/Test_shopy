@@ -12,6 +12,7 @@ struct WebBrowserView: View {
     @State private var model = WebViewModel()
     @State private var importing = false
     @State private var importMessage: String?
+    @State private var matchAnalysis: PageMatchAnalysis?
 
     private var defaultResumeText: String? {
         let cv = resumes.first(where: { $0.isDefault }) ?? resumes.first
@@ -41,6 +42,14 @@ struct WebBrowserView: View {
             Button("OK", role: .cancel) { importMessage = nil }
         } message: {
             Text(importMessage ?? "")
+        }
+        .sheet(isPresented: Binding(
+            get: { matchAnalysis != nil },
+            set: { if !$0 { matchAnalysis = nil } }
+        )) {
+            if let matchAnalysis {
+                PageMatchView(analysis: matchAnalysis)
+            }
         }
     }
 
@@ -107,6 +116,11 @@ struct WebBrowserView: View {
                     Label("Importer l'offre seulement", systemImage: "square.and.arrow.down")
                 }
                 Button {
+                    analyzePage()
+                } label: {
+                    Label("Analyser la correspondance", systemImage: "percent")
+                }
+                Button {
                     fillMyInfo()
                 } label: {
                     Label("Remplir mes infos", systemImage: "person.text.rectangle")
@@ -124,6 +138,30 @@ struct WebBrowserView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
         .background(.regularMaterial)
+    }
+
+    // MARK: Match analysis
+
+    private func analyzePage() {
+        importing = true
+        Task {
+            defer { importing = false }
+            guard let text = await model.captureVisibleText(), text.count > 40 else {
+                importMessage = "Page vide ou trop courte à analyser."
+                return
+            }
+            do {
+                let profile = ProfileStore().load().promptContext
+                matchAnalysis = try await services.claude.analyzePageMatch(
+                    pageText: text,
+                    profile: profile.isEmpty ? nil : profile,
+                    resumeText: defaultResumeText)
+            } catch let error as ClaudeError {
+                importMessage = error.errorDescription
+            } catch {
+                importMessage = error.localizedDescription
+            }
+        }
     }
 
     // MARK: Autofill

@@ -56,6 +56,19 @@ final class MockClaudeService: ClaudeService {
     var emailResult: Result<EmailDraft, Error> = .success(
         EmailDraft(subject: "Candidature", body: "Madame, Monsieur, …")
     )
+    var matchResult: Result<PageMatchAnalysis, Error> = .success(
+        PageMatchAnalysis(overallScore: 72, summary: "Bon profil global.",
+                          lines: [PageMatchLine(criterion: "Swift", matches: true,
+                                                score: 90, comment: "Maîtrisé")])
+    )
+
+    func analyzePageMatch(
+        pageText: String,
+        profile: String?,
+        resumeText: String?
+    ) async throws -> PageMatchAnalysis {
+        try matchResult.get()
+    }
 
     func generateEmail(
         kind: EmailKind,
