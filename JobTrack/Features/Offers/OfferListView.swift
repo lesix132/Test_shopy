@@ -56,6 +56,9 @@ struct OfferListView: View {
                 }
                 ToolbarItem(placement: .secondaryAction) { sortMenu }
                 ToolbarItem(placement: .secondaryAction) { filterMenu }
+                #if os(iOS)
+                ToolbarItem(placement: .topBarLeading) { EditButton() }
+                #endif
             }
             .sheet(isPresented: $showingAdd) {
                 AddOfferView(sourceHint: importSource)

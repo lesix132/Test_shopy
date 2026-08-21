@@ -4,12 +4,14 @@ import SwiftData
 struct OfferDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppServices.self) private var services
+    @Environment(\.dismiss) private var dismiss
     @Bindable var offer: JobOffer
 
     @Query private var resumes: [Resume]
     @State private var viewModel: OfferDetailViewModel?
     @State private var showingGenerator = false
     @State private var showingEdit = false
+    @State private var showingDeleteConfirm = false
 
     private var defaultResume: Resume? {
         resumes.first(where: \.isDefault) ?? resumes.first
@@ -33,6 +35,7 @@ struct OfferDetailView: View {
             organizationSection
             matchSection
             lettersSection
+            deleteSection
         }
         .navigationTitle(offer.company.isEmpty ? "Offre" : offer.company)
         #if os(iOS)
@@ -222,6 +225,29 @@ struct OfferDetailView: View {
                     }
                 }
                 .onDelete(perform: deleteLetters)
+            }
+        }
+    }
+
+    private var deleteSection: some View {
+        Section {
+            Button(role: .destructive) {
+                showingDeleteConfirm = true
+            } label: {
+                Label("Supprimer cette offre", systemImage: "trash")
+                    .frame(maxWidth: .infinity)
+            }
+            .confirmationDialog(
+                "Supprimer définitivement cette offre et ses lettres ?",
+                isPresented: $showingDeleteConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Supprimer", role: .destructive) {
+                    modelContext.delete(offer)
+                    try? modelContext.save()
+                    dismiss()
+                }
+                Button("Annuler", role: .cancel) {}
             }
         }
     }

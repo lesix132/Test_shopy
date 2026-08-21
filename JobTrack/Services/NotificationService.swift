@@ -21,6 +21,20 @@ struct NotificationService {
             || settings.authorizationStatus == .provisional
     }
 
+    /// Posts an immediate local notification (on the device running the app).
+    func notifyNow(title: String, body: String) async {
+        await requestAuthorization()
+        guard await isAuthorized() else { return }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: "instant.\(UUID().uuidString)", content: content, trigger: trigger)
+        try? await center.add(request)
+    }
+
     /// Rebuilds the pending follow-up reminders from the current offers.
     /// Clears our previous reminders first so nothing goes stale.
     func rescheduleFollowUps(for offers: [JobOffer]) async {

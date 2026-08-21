@@ -221,6 +221,12 @@ struct WebBrowserView: View {
                     importMessage = "✅ Offre importée + brouillon préparé dans les notes de l'offre. "
                         + "Connecte Gmail (Réglages) pour l'obtenir directement en brouillon d'email."
                 }
+
+                // Notify the user their draft is ready to finish sending.
+                let company = offer.company.isEmpty ? "Nouvelle offre" : offer.company
+                await NotificationService().notifyNow(
+                    title: "Brouillon de candidature prêt",
+                    body: "\(company) : viens compléter et envoyer ta candidature.")
             } catch let error as ClaudeError {
                 importMessage = error.errorDescription
             } catch let error as GmailError {
