@@ -1,16 +1,27 @@
 import SwiftUI
+import SwiftData
 import AuthenticationServices
+import UniformTypeIdentifiers
 
 /// The "Profil" screen: the memory the AI reuses, plus geographic preferences
 /// (zone, France-only, preferred regions) that filter the feed.
 struct ProfileView: View {
     @Environment(AppServices.self) private var services
+    @Query private var resumes: [Resume]
     @State private var viewModel = ProfileViewModel()
     @State private var connectingGoogle = false
+    @State private var importingCV = false
+    @State private var showFileImporter = false
+
+    private var savedResumeText: String? {
+        let text = (resumes.first(where: { $0.isDefault }) ?? resumes.first)?.extractedText
+        return (text?.isEmpty == false) ? text : nil
+    }
 
     var body: some View {
         Form {
             connectSection
+            importCVSection
             identitySection
             locationSection
             searchSection
@@ -31,6 +42,83 @@ struct ProfileView: View {
             }
         }
         .navigationTitle("Profil")
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.pdf],
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                importFromPDF(url)
+            }
+        }
+    }
+
+    // MARK: Import CV
+
+    @ViewBuilder
+    private var importCVSection: some View {
+        Section {
+            if let savedResumeText {
+                Button {
+                    Task { await extractAndApply(savedResumeText) }
+                } label: {
+                    importLabel("Pré-remplir depuis mon CV enregistré", "doc.text.magnifyingglass")
+                }
+                .disabled(importingCV)
+            }
+            Button {
+                showFileImporter = true
+            } label: {
+                importLabel("Importer un CV (PDF)…", "square.and.arrow.down")
+            }
+            .disabled(importingCV)
+        } header: {
+            Text("Importer depuis mon CV")
+        } footer: {
+            Text("L'IA lit ton CV et pré-remplit ton profil (nom, email, titre…). "
+                 + "Tu complètes ensuite. Nécessite ta clé API.")
+        }
+    }
+
+    @ViewBuilder
+    private func importLabel(_ title: String, _ icon: String) -> some View {
+        if importingCV {
+            HStack { ProgressView(); Text("Lecture du CV…") }
+        } else {
+            Label(title, systemImage: icon)
+        }
+    }
+
+    private func importFromPDF(_ url: URL) {
+        Task {
+            importingCV = true
+            defer { importingCV = false }
+            let didAccess = url.startAccessingSecurityScopedResource()
+            defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+            guard let data = try? Data(contentsOf: url) else {
+                viewModel.savedMessage = "Impossible de lire le fichier."
+                return
+            }
+            await extractAndApply(PDFService.extractText(from: data))
+        }
+    }
+
+    private func extractAndApply(_ text: String) async {
+        importingCV = true
+        defer { importingCV = false }
+        guard text.trimmingCharacters(in: .whitespacesAndNewlines).count > 30 else {
+            viewModel.savedMessage = "CV vide ou non lisible (PDF scanné ?)."
+            return
+        }
+        do {
+            let extracted = try await services.claude.extractProfile(
+                resumeText: String(text.prefix(6000)))
+            viewModel.applyExtracted(extracted)
+        } catch let error as ClaudeError {
+            viewModel.savedMessage = error.errorDescription
+        } catch {
+            viewModel.savedMessage = error.localizedDescription
+        }
     }
 
     @ViewBuilder
@@ -135,10 +223,10 @@ struct ProfileView: View {
         Section("Recherche") {
             TextField("Mots-clés (ex. nucléaire, sûreté)", text: $vm.profile.targetKeywords)
                 .autocorrectionDisabled()
-            VStack(alignment: .leading) {
-                Text("Points forts / accroche").font(.caption).foregroundStyle(.secondary)
-                TextEditor(text: $vm.profile.summary).frame(minHeight: 100)
-            }
+            // A vertical TextField (not TextEditor) so it doesn't capture the
+            // scroll wheel and block the form from scrolling on macOS.
+            TextField("Points forts / accroche", text: $vm.profile.summary, axis: .vertical)
+                .lineLimit(3...8)
         }
     }
 }

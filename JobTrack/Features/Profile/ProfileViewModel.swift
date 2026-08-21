@@ -33,6 +33,18 @@ final class ProfileViewModel {
         profile.preferredRegionsRaw.contains(region.rawValue)
     }
 
+    /// Pre-fills the profile from fields extracted from a CV (non-empty wins).
+    func applyExtracted(_ e: ExtractedProfile) {
+        if !e.fullName.isEmpty { profile.fullName = e.fullName }
+        if !e.email.isEmpty { profile.email = e.email }
+        if !e.phone.isEmpty { profile.phone = e.phone }
+        if !e.headline.isEmpty { profile.headline = e.headline }
+        if !e.city.isEmpty { profile.city = e.city }
+        if !e.summary.isEmpty { profile.summary = e.summary }
+        save()
+        savedMessage = "Profil pré-rempli depuis le CV ✓ Complète si besoin."
+    }
+
     // MARK: Sign in with Apple
 
     func handleApple(_ result: Result<ASAuthorization, Error>) {

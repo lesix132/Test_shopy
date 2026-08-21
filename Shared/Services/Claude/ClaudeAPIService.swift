@@ -30,6 +30,10 @@ protocol ClaudeService {
         resumeText: String?
     ) async throws -> FeedAnalysis
 
+    /// Extract profile fields (name, email, phone, headline, city, summary)
+    /// from a CV's text, to pre-fill the profile.
+    func extractProfile(resumeText: String) async throws -> ExtractedProfile
+
     /// Analyze the current page's text against the candidate's profile + CV,
     /// returning an overall score and a per-criterion match breakdown.
     func analyzePageMatch(
@@ -287,6 +291,31 @@ struct ClaudeAPIService: ClaudeService {
         return draft
     }
 
+    func extractProfile(resumeText: String) async throws -> ExtractedProfile {
+        let system = """
+        Tu extrais les informations d'identité d'un CV. Réponds UNIQUEMENT avec \
+        un objet JSON valide, sans texte autour, au format exact :
+        {"full_name": "...", "email": "...", "phone": "...", "headline": "...", \
+        "city": "...", "summary": "..."}
+        - full_name : nom complet.
+        - email / phone : coordonnées si présentes, sinon chaîne vide.
+        - headline : titre/poste principal (ex. « Ingénieur nucléaire »).
+        - city : ville de résidence si indiquée.
+        - summary : 1 à 2 phrases résumant les points forts.
+        Ne devine pas ce qui est absent : laisse une chaîne vide.
+        """
+        let text = try await send(
+            system: system,
+            userContent: resumeText,
+            maxTokens: 1024,
+            temperature: 0
+        )
+        guard let dto: ExtractedProfileDTO = decodeJSON(from: text) else {
+            throw ClaudeError.decoding
+        }
+        return dto.toExtracted()
+    }
+
     func analyzePageMatch(
         pageText: String,
         profile: String?,
@@ -415,6 +444,27 @@ struct ClaudeAPIService: ClaudeService {
         let json = String(text[start...end])
         guard let data = json.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(T.self, from: data)
+    }
+}
+
+/// Wire format for `extractProfile` (snake_case from the model).
+private struct ExtractedProfileDTO: Decodable {
+    let fullName: String?
+    let email: String?
+    let phone: String?
+    let headline: String?
+    let city: String?
+    let summary: String?
+
+    enum CodingKeys: String, CodingKey {
+        case fullName = "full_name"
+        case email, phone, headline, city, summary
+    }
+
+    func toExtracted() -> ExtractedProfile {
+        ExtractedProfile(
+            fullName: fullName ?? "", email: email ?? "", phone: phone ?? "",
+            headline: headline ?? "", city: city ?? "", summary: summary ?? "")
     }
 }
 

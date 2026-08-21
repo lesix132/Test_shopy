@@ -70,6 +70,16 @@ final class MockClaudeService: ClaudeService {
         try matchResult.get()
     }
 
+    var extractProfileResult: Result<ExtractedProfile, Error> = .success(
+        ExtractedProfile(fullName: "Jean Dupont", email: "jean@example.com",
+                         phone: "0600000000", headline: "Ingénieur", city: "Lyon",
+                         summary: "5 ans d'expérience.")
+    )
+
+    func extractProfile(resumeText: String) async throws -> ExtractedProfile {
+        try extractProfileResult.get()
+    }
+
     func generateEmail(
         kind: EmailKind,
         offer: JobOffer,

@@ -47,6 +47,16 @@ struct CandidateProfile: Codable, Sendable, Equatable {
     }
 }
 
+/// Fields extracted by Claude from a CV, used to pre-fill the profile.
+struct ExtractedProfile: Sendable, Codable {
+    var fullName = ""
+    var email = ""
+    var phone = ""
+    var headline = ""
+    var city = ""
+    var summary = ""
+}
+
 /// Persists the single `CandidateProfile` in the App Group `UserDefaults`.
 struct ProfileStore {
     private let key = "candidate.profile.v1"
