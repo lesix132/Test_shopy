@@ -42,6 +42,30 @@ final class GmailService {
         }
     }
 
+    /// Creates a Gmail draft (not sent) — the "brouillon".
+    func createDraft(to recipient: String, subject: String, body: String) async throws {
+        let token = try await oauth.validAccessToken()
+        let raw = Self.makeRawMessage(
+            to: recipient, from: oauth.connectedAddress, subject: subject, body: body)
+
+        var request = URLRequest(url: URL(string: "\(AppConfig.gmailAPIBase)/drafts")!)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["message": ["raw": raw]])
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                throw GmailError.sendFailed(String(data: data, encoding: .utf8) ?? "erreur")
+            }
+        } catch let error as GmailError {
+            throw error
+        } catch {
+            throw GmailError.network(error.localizedDescription)
+        }
+    }
+
     // MARK: Reply detection
 
     /// Returns true if the inbox contains a message from the offer's contact

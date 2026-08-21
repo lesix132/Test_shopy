@@ -77,9 +77,10 @@ enum AppConfig {
     static let googleAuthEndpoint = URL(string: "https://accounts.google.com/o/oauth2/v2/auth")!
     static let googleTokenEndpoint = URL(string: "https://oauth2.googleapis.com/token")!
 
-    /// Gmail scopes: send messages and read metadata (to detect replies).
+    /// Gmail scopes: compose (create drafts + send) and read (detect replies).
+    /// `gmail.compose` supersedes `gmail.send` and also allows creating drafts.
     static let gmailScopes = [
-        "https://www.googleapis.com/auth/gmail.send",
+        "https://www.googleapis.com/auth/gmail.compose",
         "https://www.googleapis.com/auth/gmail.readonly",
     ]
 

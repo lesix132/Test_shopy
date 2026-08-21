@@ -7,10 +7,17 @@ import SwiftData
 struct WebBrowserView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppServices.self) private var services
+    @Query private var resumes: [Resume]
 
     @State private var model = WebViewModel()
     @State private var importing = false
     @State private var importMessage: String?
+
+    private var defaultResumeText: String? {
+        let cv = resumes.first(where: { $0.isDefault }) ?? resumes.first
+        let text = cv?.extractedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (text?.isEmpty == false) ? text : nil
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -90,9 +97,14 @@ struct WebBrowserView: View {
 
             Menu {
                 Button {
+                    importAndPrepare()
+                } label: {
+                    Label("Tout préparer (offre + brouillon)", systemImage: "wand.and.stars")
+                }
+                Button {
                     importCurrentPage()
                 } label: {
-                    Label("Importer l'offre", systemImage: "square.and.arrow.down")
+                    Label("Importer l'offre seulement", systemImage: "square.and.arrow.down")
                 }
                 Button {
                     fillMyInfo()
@@ -123,6 +135,61 @@ struct WebBrowserView: View {
                 fullName: profile.fullName, email: profile.email, phone: profile.phone)
             importMessage = "Champs standards pré-remplis quand c'était possible. "
                 + "Vérifie et complète le formulaire, puis joins ton CV."
+        }
+    }
+
+    // MARK: Full pipeline (import + prepare application draft)
+
+    private func importAndPrepare() {
+        importing = true
+        Task {
+            defer { importing = false }
+            guard let text = await model.captureVisibleText(), text.count > 40 else {
+                importMessage = "Page vide ou trop courte pour être importée."
+                return
+            }
+            do {
+                // 1) Read the page → structured offer.
+                let parsed = try await services.claude.parseOffer(rawText: String(text.prefix(8000)))
+                let offer = JobOffer(
+                    title: parsed.title, company: parsed.company,
+                    location: parsed.location, descriptionText: parsed.description,
+                    sourceURL: model.currentURL?.absoluteString, needsParsing: false)
+                if let region = FrenchRegion.detect(from: parsed.location) {
+                    offer.tags.append(region.rawValue)
+                }
+                modelContext.insert(offer)
+                try? modelContext.save()
+
+                // 2) Draft the application email from profile + CV.
+                let profileContext = ProfileStore().load().promptContext
+                let draft = try await services.claude.generateEmail(
+                    kind: .application,
+                    offer: offer,
+                    resumeText: defaultResumeText,
+                    senderProfile: profileContext.isEmpty ? nil : profileContext,
+                    tone: .formal)
+
+                // 3) Deposit it as a draft.
+                if services.gmail.isConnected {
+                    try await services.gmail.createDraft(
+                        to: offer.contactEmail ?? "",
+                        subject: draft.subject,
+                        body: draft.body)
+                    importMessage = "✅ Offre importée + brouillon de candidature créé dans Gmail."
+                } else {
+                    offer.notes = "✉️ Brouillon de candidature — Objet : \(draft.subject)\n\n\(draft.body)"
+                    try? modelContext.save()
+                    importMessage = "✅ Offre importée + brouillon préparé dans les notes de l'offre. "
+                        + "Connecte Gmail (Réglages) pour l'obtenir directement en brouillon d'email."
+                }
+            } catch let error as ClaudeError {
+                importMessage = error.errorDescription
+            } catch let error as GmailError {
+                importMessage = error.errorDescription
+            } catch {
+                importMessage = error.localizedDescription
+            }
         }
     }
 
