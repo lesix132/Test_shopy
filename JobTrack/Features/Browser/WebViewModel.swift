@@ -38,7 +38,9 @@ final class WebViewModel {
 
     func goBack() { webView?.goBack() }
     func goForward() { webView?.goForward() }
-    func reloadOrStop() { isLoading ? webView?.stopLoading() : webView?.reload() }
+    func reloadOrStop() {
+        if isLoading { webView?.stopLoading() } else { webView?.reload() }
+    }
 
     /// Called by the coordinator on navigation events.
     func syncState() {
