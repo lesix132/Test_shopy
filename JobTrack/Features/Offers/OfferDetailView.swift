@@ -225,7 +225,10 @@ struct OfferDetailView: View {
             Button {
                 Task {
                     await viewModel?.tailorResume(for: offer, resume: defaultResume)
-                    if viewModel?.advice != nil { showingAdvice = true }
+                    if let advice = viewModel?.advice {
+                        createTailoredCV(from: advice)
+                        showingAdvice = true
+                    }
                 }
             } label: {
                 if viewModel?.isTailoring == true {
@@ -235,8 +238,12 @@ struct OfferDetailView: View {
                           systemImage: "wand.and.stars.inverse")
                 }
             }
-            .disabled(viewModel?.isTailoring == true)
+            .disabled(viewModel?.isTailoring == true || defaultResume == nil)
 
+            if defaultResume == nil {
+                Text("Ajoute d'abord un CV dans l'onglet CV.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
             if let advice = viewModel?.advice {
                 LabeledContent("Score ATS estimé", value: "\(advice.atsScore)%")
                 Button("Voir les recommandations") { showingAdvice = true }
@@ -244,9 +251,44 @@ struct OfferDetailView: View {
         } header: {
             Text("Optimisation CV (ATS)")
         } footer: {
-            Text("L'IA compare ton CV aux mots-clés de l'offre et propose des "
-                 + "reformulations honnêtes pour mieux passer les filtres automatiques.")
+            Text("L'IA crée une copie optimisée de ton CV pour cette offre (dans "
+                 + "l'onglet CV, sous l'original) et te montre les changements. "
+                 + "Honnête : elle réorganise et reformule, sans rien inventer.")
         }
+    }
+
+    /// Creates an AI-optimized copy of the default CV, tailored to this offer,
+    /// keeping the original untouched. Appears in the CV tab under its source.
+    private func createTailoredCV(from advice: ResumeAdvice) {
+        guard let original = defaultResume,
+              !advice.optimizedResumeText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return }
+        let target = [offer.title, offer.company]
+            .filter { !$0.isEmpty }.joined(separator: " — ")
+        let label = offer.title.isEmpty ? offer.company : offer.title
+        let pdf = PDFService.makePDF(from: advice.optimizedResumeText,
+                                     title: "CV — \(target)")
+        let copy = Resume(
+            name: "CV optimisé — \(label)",
+            pdfData: pdf,
+            extractedText: advice.optimizedResumeText,
+            isDefault: false,
+            sourceResumeID: original.id,
+            tailoredForOffer: target.isEmpty ? offer.company : target,
+            tailoringReason: tailoringReason(from: advice))
+        modelContext.insert(copy)
+        try? modelContext.save()
+    }
+
+    private func tailoringReason(from advice: ResumeAdvice) -> String {
+        var parts: [String] = []
+        if !advice.missingKeywords.isEmpty {
+            parts.append("Mots-clés intégrés : "
+                         + advice.missingKeywords.prefix(6).joined(separator: ", "))
+        }
+        if let first = advice.suggestions.first { parts.append(first) }
+        parts.append("Score ATS estimé : \(advice.atsScore)%")
+        return parts.joined(separator: " · ")
     }
 
     @ViewBuilder

@@ -15,6 +15,9 @@ struct ResumeAdvice: Sendable, Equatable {
     var suggestions: [String]
     /// A rewritten professional summary / accroche tuned to the offer.
     var optimizedSummary: String
+    /// The full CV rewritten in the SAME structure/body as the original,
+    /// optimized (honestly) for the offer — used to create a tailored CV copy.
+    var optimizedResumeText: String
 }
 
 /// Wire format decoded from Claude, mapped to `ResumeAdvice`.
@@ -24,6 +27,7 @@ struct ResumeAdviceDTO: Decodable {
     let missingKeywords: [String]?
     let suggestions: [String]?
     let optimizedSummary: String?
+    let optimizedResume: String?
 
     enum CodingKeys: String, CodingKey {
         case atsScore = "ats_score"
@@ -31,6 +35,7 @@ struct ResumeAdviceDTO: Decodable {
         case missingKeywords = "missing_keywords"
         case suggestions
         case optimizedSummary = "optimized_summary"
+        case optimizedResume = "optimized_resume"
     }
 
     func toAdvice() -> ResumeAdvice {
@@ -39,6 +44,7 @@ struct ResumeAdviceDTO: Decodable {
             presentKeywords: presentKeywords ?? [],
             missingKeywords: missingKeywords ?? [],
             suggestions: suggestions ?? [],
-            optimizedSummary: optimizedSummary ?? "")
+            optimizedSummary: optimizedSummary ?? "",
+            optimizedResumeText: optimizedResume ?? "")
     }
 }

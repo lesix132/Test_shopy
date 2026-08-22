@@ -93,7 +93,8 @@ final class MockClaudeService: ClaudeService {
     var adviceResult: Result<ResumeAdvice, Error> = .success(
         ResumeAdvice(atsScore: 68, presentKeywords: ["Swift"],
                      missingKeywords: ["Sûreté"], suggestions: ["Quantifie tes résultats."],
-                     optimizedSummary: "Ingénieur avec 5 ans d'expérience…"))
+                     optimizedSummary: "Ingénieur avec 5 ans d'expérience…",
+                     optimizedResumeText: "CV optimisé complet…"))
 
     func tailorResume(resumeText: String, offer: JobOffer) async throws -> ResumeAdvice {
         try adviceResult.get()

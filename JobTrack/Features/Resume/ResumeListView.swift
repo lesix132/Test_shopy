@@ -42,6 +42,21 @@ struct ResumeListView: View {
         }
     }
 
+    /// Originals first; each AI-optimized copy is listed right under its source.
+    private var orderedResumes: [Resume] {
+        let roots = resumes.filter { !$0.isTailored }
+        var result: [Resume] = []
+        for root in roots {
+            result.append(root)
+            result.append(contentsOf: resumes
+                .filter { $0.sourceResumeID == root.id }
+                .sorted { $0.dateUpdated > $1.dateUpdated })
+        }
+        let shown = Set(result.map(\.id))
+        result.append(contentsOf: resumes.filter { !shown.contains($0.id) })
+        return result
+    }
+
     private var list: some View {
         List {
             if let error = viewModel.errorMessage {
@@ -50,24 +65,11 @@ struct ResumeListView: View {
                         .font(.footnote).foregroundStyle(.orange)
                 }
             }
-            ForEach(resumes) { resume in
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(resume.name).font(.headline)
-                        if resume.isDefault {
-                            Text("Par défaut")
-                                .font(.caption2)
-                                .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(Color.green.opacity(0.15), in: Capsule())
-                                .foregroundStyle(.green)
-                        }
-                    }
-                    Text("Mis à jour le \(resume.dateUpdated.formatted(date: .abbreviated, time: .omitted))")
-                        .font(.caption).foregroundStyle(.secondary)
-                    Text(resume.extractedText.isEmpty
-                         ? "Aucun texte extrait"
-                         : "\(resume.extractedText.count) caractères extraits")
-                        .font(.caption2).foregroundStyle(.tertiary)
+            ForEach(orderedResumes) { resume in
+                NavigationLink {
+                    ResumeTextView(resume: resume)
+                } label: {
+                    resumeRow(resume)
                 }
                 .swipeActions {
                     Button(role: .destructive) {
@@ -83,6 +85,36 @@ struct ResumeListView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func resumeRow(_ resume: Resume) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                if resume.isTailored {
+                    Image(systemName: "arrow.turn.down.right").foregroundStyle(.tertiary)
+                }
+                Text(resume.name).font(resume.isTailored ? .subheadline.weight(.medium) : .headline)
+                if resume.isDefault {
+                    Text("Par défaut")
+                        .font(.caption2)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Color.green.opacity(0.15), in: Capsule())
+                        .foregroundStyle(.green)
+                }
+            }
+            if resume.isTailored, let target = resume.tailoredForOffer {
+                Label("Optimisé pour : \(target)", systemImage: "wand.and.stars")
+                    .font(.caption).foregroundStyle(.indigo)
+                if let reason = resume.tailoringReason, !reason.isEmpty {
+                    Text(reason).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
+                }
+            } else {
+                Text("Mis à jour le \(resume.dateUpdated.formatted(date: .abbreviated, time: .omitted))")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .padding(.leading, resume.isTailored ? 12 : 0)
     }
 
     private var emptyState: some View {

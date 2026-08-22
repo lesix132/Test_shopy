@@ -10,6 +10,15 @@ struct ResumeAdviceView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if !advice.optimizedResumeText.isEmpty {
+                    Section {
+                        Label("Copie optimisée ajoutée dans l'onglet CV, sous ton CV "
+                              + "d'origine.", systemImage: "checkmark.circle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.green)
+                    }
+                }
+
                 Section {
                     HStack(spacing: 14) {
                         ZStack {

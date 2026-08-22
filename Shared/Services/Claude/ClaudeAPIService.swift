@@ -307,7 +307,7 @@ struct ClaudeAPIService: ClaudeService {
         Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour :
         {"ats_score": 0-100, "present_keywords": ["..."], \
         "missing_keywords": ["..."], "suggestions": ["..."], \
-        "optimized_summary": "..."}
+        "optimized_summary": "...", "optimized_resume": "..."}
         - ats_score : probabilité (0-100) que le CV passe l'ATS de l'offre tel quel.
         - present_keywords : mots-clés/compétences de l'offre déjà dans le CV.
         - missing_keywords : mots-clés importants de l'offre absents du CV \
@@ -316,6 +316,13 @@ struct ClaudeAPIService: ClaudeService {
           (reformulations, verbes d'action, quantification, format ATS-friendly).
         - optimized_summary : une accroche/résumé professionnel (3-5 lignes) \
           réécrit et calibré pour cette offre, à partir du CV réel.
+        - optimized_resume : le CV COMPLET réécrit, en conservant EXACTEMENT la \
+          même structure et les mêmes sections que l'original (même corps de \
+          texte), mais optimisé pour cette offre : accroche intégrée, mots-clés \
+          pertinents remontés, verbes d'action, formulations ATS-friendly. \
+          N'invente aucune expérience, aucun diplôme, aucune date : réorganise \
+          et reformule uniquement le contenu réel. Texte brut lisible, pas de \
+          Markdown lourd.
         """
         let userContent = """
         === CV ===
@@ -331,7 +338,7 @@ struct ClaudeAPIService: ClaudeService {
         let text = try await send(
             system: system,
             userContent: userContent,
-            maxTokens: 2048,
+            maxTokens: 4096,
             temperature: 0.3
         )
         guard let dto: ResumeAdviceDTO = decodeJSON(from: text) else {
