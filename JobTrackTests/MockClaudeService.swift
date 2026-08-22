@@ -91,7 +91,7 @@ final class MockClaudeService: ClaudeService {
     }
 
     var adviceResult: Result<ResumeAdvice, Error> = .success(
-        ResumeAdvice(atsScore: 68, presentKeywords: ["Swift"],
+        ResumeAdvice(atsScore: 68, optimizedAtsScore: 84, presentKeywords: ["Swift"],
                      missingKeywords: ["Sûreté"], suggestions: ["Quantifie tes résultats."],
                      optimizedSummary: "Ingénieur avec 5 ans d'expérience…",
                      optimizedResumeText: "CV optimisé complet…"))

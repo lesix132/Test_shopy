@@ -20,13 +20,6 @@ struct OfferDetailView: View {
         resumes.first(where: \.isDefault) ?? resumes.first
     }
 
-    /// The default CV as a mail attachment, if one is stored.
-    private var cvAttachment: EmailAttachment? {
-        guard let cv = defaultResume, !cv.pdfData.isEmpty else { return nil }
-        let name = cv.name.isEmpty ? "CV" : cv.name
-        return EmailAttachment(filename: "\(name).pdf", mimeType: "application/pdf", data: cv.pdfData)
-    }
-
     var body: some View {
         Form {
             if offer.needsParsing {
@@ -234,7 +227,7 @@ struct OfferDetailView: View {
                 if viewModel?.isTailoring == true {
                     HStack { ProgressView(); Text("Optimisation…") }
                 } else {
-                    Label("Optimiser mon CV pour cette offre (ATS)",
+                    Label("Optimiser mon CV pour cette offre (viser 80 %)",
                           systemImage: "wand.and.stars.inverse")
                 }
             }
@@ -245,7 +238,8 @@ struct OfferDetailView: View {
                     .font(.footnote).foregroundStyle(.secondary)
             }
             if let advice = viewModel?.advice {
-                LabeledContent("Score ATS estimé", value: "\(advice.atsScore)%")
+                LabeledContent("Score ATS",
+                               value: "\(advice.atsScore)% → \(advice.optimizedAtsScore)%")
                 Button("Voir les recommandations") { showingAdvice = true }
             }
         } header: {
@@ -287,8 +281,28 @@ struct OfferDetailView: View {
                          + advice.missingKeywords.prefix(6).joined(separator: ", "))
         }
         if let first = advice.suggestions.first { parts.append(first) }
-        parts.append("Score ATS estimé : \(advice.atsScore)%")
+        parts.append("Score ATS : \(advice.atsScore)% → \(advice.optimizedAtsScore)% après optimisation")
         return parts.joined(separator: " · ")
+    }
+
+    /// The most recent AI-optimized CV tailored for THIS offer, if any.
+    private var tailoredCVForThisOffer: Resume? {
+        let target = [offer.title, offer.company]
+            .filter { !$0.isEmpty }.joined(separator: " — ")
+        return resumes
+            .filter { $0.isTailored
+                && ($0.tailoredForOffer == target || $0.tailoredForOffer == offer.company) }
+            .sorted { $0.dateUpdated > $1.dateUpdated }
+            .first
+    }
+
+    /// CV to attach to the draft: the optimized copy for this offer if it exists,
+    /// otherwise the default CV.
+    private var draftCVAttachment: EmailAttachment? {
+        let cv = tailoredCVForThisOffer ?? defaultResume
+        guard let cv, !cv.pdfData.isEmpty else { return nil }
+        let name = cv.name.isEmpty ? "CV" : cv.name
+        return EmailAttachment(filename: "\(name).pdf", mimeType: "application/pdf", data: cv.pdfData)
     }
 
     @ViewBuilder
@@ -309,7 +323,8 @@ struct OfferDetailView: View {
             Text("Automatisation")
         } footer: {
             Text("L'IA relève l'email du recruteur, rédige un mail (objet + accroche) "
-                 + "et le dépose en brouillon Gmail avec ton CV joint (sinon dans les notes).")
+                 + "et le dépose en brouillon Gmail. Si tu as optimisé ton CV pour "
+                 + "cette offre, c'est cette version optimisée qui est jointe.")
         }
     }
 
@@ -336,11 +351,14 @@ struct OfferDetailView: View {
 
                 let email = offer.contactEmail ?? ""
                 let toLabel = email.isEmpty ? " (destinataire à compléter)" : " (à : \(email))"
-                let cvNote = cvAttachment != nil ? " CV joint." : ""
+                let attachment = draftCVAttachment
+                let usingOptimized = tailoredCVForThisOffer != nil
+                let cvNote = attachment != nil
+                    ? (usingOptimized ? " CV optimisé joint." : " CV joint.") : ""
                 if services.gmail.isConnected {
                     try await services.gmail.createDraft(
                         to: email, subject: draft.subject, body: draft.body,
-                        attachment: cvAttachment)
+                        attachment: attachment)
                     prepareMessage = "✅ Brouillon Gmail prêt\(toLabel).\(cvNote)"
                 } else {
                     let to = email.isEmpty ? "—" : email

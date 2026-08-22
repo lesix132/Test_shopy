@@ -18,7 +18,12 @@ final class OfferDetailViewModel {
         self.claude = claude
     }
 
-    /// Ask Claude how to tune the CV to pass this offer's ATS more easily.
+    /// Target ATS score the optimized CV should reach.
+    static let targetATS = 80
+
+    /// Optimize the CV for this offer, iterating until the optimized CV reaches
+    /// the target ATS score (≥ 80) or a max number of passes — feeding each
+    /// improved CV back in. Keeps the best result.
     func tailorResume(for offer: JobOffer, resume: Resume?) async {
         guard let resume, !resume.extractedText.isEmpty else {
             errorMessage = "Ajoutez d'abord un CV avec du texte extractible."
@@ -27,9 +32,21 @@ final class OfferDetailViewModel {
         errorMessage = nil
         isTailoring = true
         defer { isTailoring = false }
+
+        var currentCV = resume.extractedText
+        var best: ResumeAdvice?
         do {
-            advice = try await claude.tailorResume(
-                resumeText: resume.extractedText, offer: offer)
+            for _ in 0..<3 {
+                let result = try await claude.tailorResume(resumeText: currentCV, offer: offer)
+                if best == nil || result.optimizedAtsScore > best!.optimizedAtsScore {
+                    best = result
+                }
+                if result.optimizedAtsScore >= Self.targetATS { break }
+                let next = result.optimizedResumeText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if next.isEmpty || next == currentCV { break }  // no further progress
+                currentCV = next  // re-optimize the improved CV
+            }
+            advice = best
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }

@@ -24,15 +24,15 @@ struct ResumeAdviceView: View {
                         ZStack {
                             Circle().stroke(scoreColor.opacity(0.2), lineWidth: 8)
                             Circle()
-                                .trim(from: 0, to: CGFloat(advice.atsScore) / 100)
+                                .trim(from: 0, to: CGFloat(advice.optimizedAtsScore) / 100)
                                 .stroke(scoreColor, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                                 .rotationEffect(.degrees(-90))
-                            Text("\(advice.atsScore)%").font(.headline.bold())
+                            Text("\(advice.optimizedAtsScore)%").font(.headline.bold())
                         }
                         .frame(width: 66, height: 66)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Score ATS estimé").font(.subheadline.weight(.semibold))
-                            Text("Probabilité de passer le tri automatique de cette offre.")
+                            Text("Score ATS après optimisation").font(.subheadline.weight(.semibold))
+                            Text("Avant : \(advice.atsScore)% · objectif : 80%")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -94,7 +94,7 @@ struct ResumeAdviceView: View {
     }
 
     private var scoreColor: Color {
-        switch advice.atsScore {
+        switch advice.optimizedAtsScore {
         case 70...: return .green
         case 45..<70: return .orange
         default: return .red

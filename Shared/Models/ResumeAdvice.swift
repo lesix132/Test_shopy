@@ -7,6 +7,8 @@ import Foundation
 struct ResumeAdvice: Sendable, Equatable {
     /// Estimated likelihood (0–100) the CV passes the offer's ATS as-is.
     var atsScore: Int
+    /// Estimated ATS score (0–100) of the OPTIMIZED CV. Target: ≥ 80.
+    var optimizedAtsScore: Int
     /// Offer keywords already present in the CV.
     var presentKeywords: [String]
     /// Offer keywords missing from the CV (add them if truthful).
@@ -23,6 +25,7 @@ struct ResumeAdvice: Sendable, Equatable {
 /// Wire format decoded from Claude, mapped to `ResumeAdvice`.
 struct ResumeAdviceDTO: Decodable {
     let atsScore: Int?
+    let optimizedAtsScore: Int?
     let presentKeywords: [String]?
     let missingKeywords: [String]?
     let suggestions: [String]?
@@ -31,6 +34,7 @@ struct ResumeAdviceDTO: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case atsScore = "ats_score"
+        case optimizedAtsScore = "optimized_ats_score"
         case presentKeywords = "present_keywords"
         case missingKeywords = "missing_keywords"
         case suggestions
@@ -41,6 +45,7 @@ struct ResumeAdviceDTO: Decodable {
     func toAdvice() -> ResumeAdvice {
         ResumeAdvice(
             atsScore: min(100, max(0, atsScore ?? 0)),
+            optimizedAtsScore: min(100, max(0, optimizedAtsScore ?? atsScore ?? 0)),
             presentKeywords: presentKeywords ?? [],
             missingKeywords: missingKeywords ?? [],
             suggestions: suggestions ?? [],

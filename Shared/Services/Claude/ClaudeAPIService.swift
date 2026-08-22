@@ -304,11 +304,17 @@ struct ClaudeAPIService: ClaudeService {
         n'inventes jamais d'expérience, de diplôme ou de compétence ; tu \
         proposes seulement de reformuler, réorganiser, et faire remonter des \
         éléments réels déjà présents (ou plausibles à ajouter par le candidat). \
+        OBJECTIF : le CV optimisé doit atteindre un score ATS d'au moins 80/100 \
+        pour cette offre. Reformule et réorganise agressivement (mots-clés exacts \
+        de l'offre, intitulés alignés, compétences remontées, verbes d'action, \
+        quantification) — mais reste honnête. \
         Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour :
-        {"ats_score": 0-100, "present_keywords": ["..."], \
-        "missing_keywords": ["..."], "suggestions": ["..."], \
-        "optimized_summary": "...", "optimized_resume": "..."}
+        {"ats_score": 0-100, "optimized_ats_score": 0-100, \
+        "present_keywords": ["..."], "missing_keywords": ["..."], \
+        "suggestions": ["..."], "optimized_summary": "...", "optimized_resume": "..."}
         - ats_score : probabilité (0-100) que le CV passe l'ATS de l'offre tel quel.
+        - optimized_ats_score : score ATS estimé (0-100) du CV optimisé \
+          (optimized_resume). Il doit viser au moins 80.
         - present_keywords : mots-clés/compétences de l'offre déjà dans le CV.
         - missing_keywords : mots-clés importants de l'offre absents du CV \
           (à ajouter SEULEMENT s'ils sont vrais pour le candidat).
