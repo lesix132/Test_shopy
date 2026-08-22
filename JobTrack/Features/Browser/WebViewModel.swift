@@ -27,14 +27,17 @@ final class WebViewModel {
     private let autoScanKey = "web.autoscan.enabled"
 
     /// When on, each finished page is analysed and a matching offer is outlined.
+    /// Off by default — analysis is on-demand via the "Analyser" action.
     var autoScanEnabled: Bool {
         didSet { defaults.set(autoScanEnabled, forKey: autoScanKey) }
     }
+    /// Minimum match (%) for an auto-detected offer to be surfaced.
+    static let autoMatchThreshold = 30
     /// URLs already scanned this session, so we don't re-analyse (and re-bill) them.
     private var scannedURLs: Set<String> = []
 
     init() {
-        autoScanEnabled = defaults.object(forKey: autoScanKey) as? Bool ?? true
+        autoScanEnabled = defaults.object(forKey: autoScanKey) as? Bool ?? false
     }
 
     /// Marks `url` as scanned; returns true only the first time it's seen.

@@ -173,7 +173,8 @@ struct WebBrowserView: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text("Offre compatible détectée").font(.subheadline.weight(.semibold))
-                Text("Correspondance ≥ 40 % avec ton profil").font(.caption)
+                Text("Correspondance ≥ \(WebViewModel.autoMatchThreshold) % avec ton profil")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -224,7 +225,7 @@ struct WebBrowserView: View {
                     pageText: String(text.prefix(6000)),
                     profile: profile.isEmpty ? nil : profile,
                     resumeText: defaultResumeText)
-                guard analysis.overallScore >= 40 else { return }
+                guard analysis.overallScore >= WebViewModel.autoMatchThreshold else { return }
                 withAnimation { autoMatch = analysis }
                 await model.highlightMatch(score: analysis.overallScore)
             } catch {
