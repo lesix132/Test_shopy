@@ -21,13 +21,27 @@ struct FeedSourceStore {
             save(FeedSource.defaults)
             return FeedSource.defaults
         }
+        var changed = false
+
         // Add newly-introduced built-in kinds the user has never seen.
         let existingKinds = Set(sources.map(\.kind))
-        let newDefaults = FeedSource.defaults.filter { !existingKinds.contains($0.kind) }
+        let newDefaults = FeedSource.defaults.filter {
+            $0.category == .jobs && !existingKinds.contains($0.kind)
+        }
         if !newDefaults.isEmpty {
             sources.insert(contentsOf: newDefaults, at: 0)
-            save(sources)
+            changed = true
         }
+
+        // Seed the employment-news feeds for users who upgraded from a version
+        // that had none. Only when the user has zero news source, so removing
+        // one later isn't undone on the next launch.
+        if !sources.contains(where: { $0.category == .news }) {
+            sources.append(contentsOf: FeedSource.newsDefaults)
+            changed = true
+        }
+
+        if changed { save(sources) }
         return sources
     }
 

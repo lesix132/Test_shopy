@@ -21,6 +21,8 @@ final class FeedViewModel {
     var franceOnly: Bool = true
     /// Optional region filter.
     var regionFilter: FrenchRegion?
+    /// Which segment is shown: job offers or employment news.
+    var category: FeedCategory = .jobs
 
     // MARK: AI (translation & analysis) caches
 
@@ -59,13 +61,16 @@ final class FeedViewModel {
     // MARK: Derived
 
     var filteredItems: [FeedItem] {
-        var result = items
+        var result = items.filter { $0.category == category }
 
-        if franceOnly {
-            result = result.filter { FrenchRegion.isLikelyFrance($0.location) }
-        }
-        if let regionFilter {
-            result = result.filter { FrenchRegion.detect(from: $0.location) == regionFilter }
+        // Geographic filters only make sense for job offers (news has no place).
+        if category == .jobs {
+            if franceOnly {
+                result = result.filter { FrenchRegion.isLikelyFrance($0.location) }
+            }
+            if let regionFilter {
+                result = result.filter { FrenchRegion.detect(from: $0.location) == regionFilter }
+            }
         }
 
         let q = keyword.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -86,7 +91,9 @@ final class FeedViewModel {
         return FrenchRegion.allCases.filter { set.contains($0) }
     }
 
-    var hasEnabledSource: Bool { sources.contains { $0.isEnabled } }
+    var hasEnabledSource: Bool {
+        sources.contains { $0.isEnabled && $0.category == category }
+    }
 
     // MARK: Actions
 
@@ -174,7 +181,10 @@ final class FeedViewModel {
         isBatchProcessing = true
         defer { isBatchProcessing = false }
         for item in filteredItems {
-            await analyze(item, resumeText: resumeText)
+            // News items aren't scored against a CV — just translate them.
+            if category == .jobs {
+                await analyze(item, resumeText: resumeText)
+            }
             await translate(item)
         }
     }

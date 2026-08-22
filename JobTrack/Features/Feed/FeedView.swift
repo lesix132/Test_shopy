@@ -106,10 +106,12 @@ struct FeedView: View {
             if vm.filteredItems.isEmpty, !vm.isLoading {
                 Section { emptyState(vm) }
             } else {
-                Section("\(vm.filteredItems.count) offre(s)") {
+                let count = vm.filteredItems.count
+                Section(vm.category == .news ? "\(count) article(s)" : "\(count) offre(s)") {
                     ForEach(vm.filteredItems) { item in
                         FeedRow(
                             item: item,
+                            isNews: item.category == .news,
                             region: vm.region(for: item),
                             translation: vm.translations[item.id],
                             analysis: vm.analyses[item.id],
@@ -127,9 +129,13 @@ struct FeedView: View {
         #if os(iOS)
         .listStyle(.insetGrouped)
         #endif
-        .searchable(text: $vm.keyword, prompt: "Filtrer le fil")
+        .safeAreaInset(edge: .top) { categoryPicker(vm) }
+        .searchable(text: $vm.keyword,
+                    prompt: vm.category == .news ? "Filtrer les actualités" : "Filtrer le fil")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) { filtersMenu(vm) }
+            if vm.category == .jobs {
+                ToolbarItem(placement: .primaryAction) { filtersMenu(vm) }
+            }
         }
         .refreshable { await vm.refresh() }
         .overlay {
@@ -137,6 +143,20 @@ struct FeedView: View {
                 ProgressView("Chargement du fil…")
             }
         }
+    }
+
+    /// Segmented switch between job offers and employment news, pinned at the top.
+    @ViewBuilder
+    private func categoryPicker(_ vm: FeedViewModel) -> some View {
+        @Bindable var vm = vm
+        Picker("Catégorie", selection: $vm.category) {
+            Text("Offres").tag(FeedCategory.jobs)
+            Text("Actualités").tag(FeedCategory.news)
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(.bar)
     }
 
     @ViewBuilder
@@ -172,20 +192,25 @@ struct FeedView: View {
 
     @ViewBuilder
     private func emptyState(_ vm: FeedViewModel) -> some View {
+        let isNews = vm.category == .news
         if !vm.hasEnabledSource {
             ContentUnavailableView {
                 Label("Aucune source active", systemImage: "antenna.radiowaves.left.and.right.slash")
             } description: {
-                Text("Active ou ajoute une source pour voir des offres.")
+                Text(isNews
+                     ? "Active ou ajoute une source d'actualités pour voir des articles."
+                     : "Active ou ajoute une source pour voir des offres.")
             } actions: {
                 Button("Gérer les sources") { showingSources = true }
                     .buttonStyle(.borderedProminent)
             }
         } else {
             ContentUnavailableView {
-                Label("Fil vide", systemImage: "tray")
+                Label(isNews ? "Aucune actualité" : "Fil vide", systemImage: "tray")
             } description: {
-                Text("Aucune offre pour l'instant. Tire pour rafraîchir.")
+                Text(isNews
+                     ? "Aucun article pour l'instant. Tire pour rafraîchir."
+                     : "Aucune offre pour l'instant. Tire pour rafraîchir.")
             }
         }
     }
@@ -203,6 +228,7 @@ struct FeedView: View {
 
 private struct FeedRow: View {
     let item: FeedItem
+    let isNews: Bool
     let region: FrenchRegion?
     let translation: TranslatedText?
     let analysis: FeedAnalysis?
@@ -231,7 +257,7 @@ private struct FeedRow: View {
             HStack(alignment: .top) {
                 Text(displayTitle).font(.headline)
                 Spacer()
-                if let score = analysis?.matchScore {
+                if !isNews, let score = analysis?.matchScore {
                     Text("\(score)%")
                         .font(.caption).bold()
                         .padding(.horizontal, 8).padding(.vertical, 3)
@@ -240,14 +266,16 @@ private struct FeedRow: View {
                 }
             }
 
-            HStack(spacing: 6) {
-                if !item.company.isEmpty { Text(item.company).fontWeight(.medium) }
-                if !item.location.isEmpty { Text("· \(item.location)") }
+            if !item.company.isEmpty || !item.location.isEmpty {
+                HStack(spacing: 6) {
+                    if !item.company.isEmpty { Text(item.company).fontWeight(.medium) }
+                    if !item.location.isEmpty { Text("· \(item.location)") }
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
 
-            if let region {
+            if !isNews, let region {
                 Label(region.rawValue, systemImage: "mappin.and.ellipse")
                     .font(.caption2)
                     .padding(.horizontal, 7).padding(.vertical, 3)
@@ -296,26 +324,30 @@ private struct FeedRow: View {
                 aiButton("Traduire", systemImage: "character.bubble",
                          busy: isTranslating, action: onTranslate)
             }
-            if analysis == nil {
+            if !isNews, analysis == nil {
                 aiButton("Analyser", systemImage: "sparkles",
                          busy: isAnalyzing, action: onAnalyze)
             }
             if let urlString = item.url, let url = URL(string: urlString) {
-                Link(destination: url) { Label("Ouvrir", systemImage: "safari") }
-                    .font(.callout)
+                Link(destination: url) {
+                    Label(isNews ? "Lire l'article" : "Ouvrir", systemImage: "safari")
+                }
+                .font(.callout)
             }
             Spacer()
-            Button(action: onSave) {
-                if isSaved {
-                    Label("Enregistrée", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                } else {
-                    Label("Enregistrer", systemImage: "square.and.arrow.down")
+            if !isNews {
+                Button(action: onSave) {
+                    if isSaved {
+                        Label("Enregistrée", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    } else {
+                        Label("Enregistrer", systemImage: "square.and.arrow.down")
+                    }
                 }
+                .font(.callout)
+                .buttonStyle(.borderless)
+                .disabled(isSaved)
             }
-            .font(.callout)
-            .buttonStyle(.borderless)
-            .disabled(isSaved)
         }
         .padding(.top, 2)
     }

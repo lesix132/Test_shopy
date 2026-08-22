@@ -82,6 +82,29 @@ final class FeedViewModelTests: XCTestCase {
         XCTAssertTrue(offer.tags.contains("swift"))
     }
 
+    func testCategorySeparatesJobsAndNews() async {
+        let mixed = [
+            FeedItem(id: "j#1", title: "iOS Engineer", company: "ACME",
+                     location: "Paris", summary: "Swift", url: "https://ex/1",
+                     publishedAt: Date(timeIntervalSince1970: 300), sourceName: "Jobs",
+                     category: .jobs),
+            FeedItem(id: "n#1", title: "Le marché de l'emploi repart", company: "",
+                     location: "", summary: "Actu", url: "https://ex/n1",
+                     publishedAt: Date(timeIntervalSince1970: 200), sourceName: "News",
+                     category: .news),
+        ]
+        let service = MockJobFeedService(result: FeedFetchResult(items: mixed, failures: []))
+        let vm = FeedViewModel(service: service, claude: MockClaudeService())
+        vm.franceOnly = false
+        await vm.refresh()
+
+        vm.category = .jobs
+        XCTAssertEqual(vm.filteredItems.map(\.id), ["j#1"])
+
+        vm.category = .news
+        XCTAssertEqual(vm.filteredItems.map(\.id), ["n#1"])
+    }
+
     func testTranslateIsCached() async {
         let service = MockJobFeedService(result: FeedFetchResult(items: makeItems(), failures: []))
         let vm = FeedViewModel(service: service, claude: MockClaudeService())

@@ -4,8 +4,9 @@ import Foundation
 /// iOS and macOS). Extracts the fields JobTrack needs from `<item>`/`<entry>`.
 enum RSSFeedParser {
 
-    static func parse(data: Data, sourceName: String) -> [FeedItem] {
-        let delegate = Delegate(sourceName: sourceName)
+    static func parse(data: Data, sourceName: String,
+                      category: FeedCategory = .jobs) -> [FeedItem] {
+        let delegate = Delegate(sourceName: sourceName, category: category)
         let parser = XMLParser(data: data)
         parser.delegate = delegate
         parser.parse()
@@ -16,6 +17,7 @@ enum RSSFeedParser {
 
     private final class Delegate: NSObject, XMLParserDelegate {
         let sourceName: String
+        let category: FeedCategory
         private(set) var items: [FeedItem] = []
 
         private var current: [String: String] = [:]
@@ -25,8 +27,9 @@ enum RSSFeedParser {
         /// Atom `<link href="...">` is an attribute, not element text.
         private var atomLinkFromAttribute: String?
 
-        init(sourceName: String) {
+        init(sourceName: String, category: FeedCategory) {
             self.sourceName = sourceName
+            self.category = category
         }
 
         func parser(_ parser: XMLParser, didStartElement elementName: String,
@@ -88,7 +91,11 @@ enum RSSFeedParser {
 
         private func makeItem() -> FeedItem {
             let rawTitle = current["title"] ?? ""
-            let (title, company) = splitTitleAndCompany(rawTitle)
+            // News headlines aren't "Job at Company", so keep them intact and
+            // don't try to extract a company from a colon/" at ".
+            let (title, company): (String, String) = category == .news
+                ? (rawTitle.strippingHTML, "")
+                : splitTitleAndCompany(rawTitle)
             let link = (current["link"]?.nilIfBlank) ?? atomLinkFromAttribute
             let guid = current["guid"]?.nilIfBlank ?? link ?? rawTitle
             let summary = current["description"]?.strippingHTML ?? ""
@@ -102,7 +109,8 @@ enum RSSFeedParser {
                 summary: summary,
                 url: link,
                 publishedAt: date,
-                sourceName: sourceName
+                sourceName: sourceName,
+                category: category
             )
         }
 

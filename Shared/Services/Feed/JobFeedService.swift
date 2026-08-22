@@ -82,7 +82,8 @@ struct JobFeedNetworkService: JobFeedService {
 
             let items: [FeedItem]
             switch source.kind {
-            case .rss:          items = RSSFeedParser.parse(data: data, sourceName: source.name)
+            case .rss:          items = RSSFeedParser.parse(data: data, sourceName: source.name,
+                                                            category: source.category)
             case .remotiveJSON: items = try RemotiveDecoder.decode(data: data, sourceName: source.name)
             case .franceTravail, .adzuna:
                 items = []  // credential-based sources are handled by fetchAPI
