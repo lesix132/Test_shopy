@@ -113,6 +113,14 @@ struct SettingsView: View {
                 Text("France Travail").font(.subheadline.weight(.medium))
             }
             if !vm.hasFranceTravail {
+                DisclosureGroup("Aide : où trouver mes clés ?") {
+                    openLink("1. Ouvrir francetravail.io", "https://francetravail.io/data/api",
+                             icon: "safari")
+                    Text("2. Se connecter, puis « Créer une application ».")
+                    Text("3. Abonner l'application à l'API « Offres d'emploi v2 ».")
+                    Text("4. Copier l'Identifiant client + la Clé secrète ci-dessous.")
+                }
+                .font(.footnote)
                 TextField("Identifiant client", text: $vm.ftClientIDInput)
                     #if os(iOS)
                     .textInputAutocapitalization(.never)
@@ -137,6 +145,8 @@ struct SettingsView: View {
                 Text("Adzuna").font(.subheadline.weight(.medium))
             }
             if !vm.hasAdzuna {
+                openLink("Créer mes clés Adzuna (gratuit)", "https://developer.adzuna.com",
+                         icon: "safari")
                 TextField("app_id", text: $vm.adzunaAppIDInput)
                     #if os(iOS)
                     .textInputAutocapitalization(.never)
@@ -154,18 +164,12 @@ struct SettingsView: View {
         } header: {
             Text("Sources France (offres FR)")
         } footer: {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Alternative légale à LinkedIn/Indeed. Clés gratuites.")
-                Text("France Travail (francetravail.io) : crée une application, puis "
-                     + "ABONNE-la à l'API « Offres d'emploi v2 » (sinon la recherche "
-                     + "échoue même avec des clés valides). Copie l'Identifiant client "
-                     + "et la Clé secrète ici.")
-                Text("Adzuna : app_id + app_key sur developer.adzuna.com.")
-                Text("Puis active la source dans Fil → Sources et règle les mots-clés "
-                     + "(défaut : « \(AppConfig.defaultFeedQuery) »).")
-                    .foregroundStyle(.secondary)
-            }
-            .font(.footnote)
+            Text("Alternative légale à LinkedIn/Indeed, clés gratuites. Une fois "
+                 + "enregistrées, active la source dans Fil → Sources et règle les "
+                 + "mots-clés (défaut : « \(AppConfig.defaultFeedQuery) »). "
+                 + "Important : l'app France Travail doit être abonnée à l'API "
+                 + "« Offres d'emploi v2 », sinon la recherche échoue.")
+                .font(.footnote)
         }
     }
 
@@ -186,6 +190,21 @@ struct SettingsView: View {
             }
 
             if !vm.hasGoogleClientID {
+                DisclosureGroup("Aide : créer mon identifiant Google") {
+                    openLink("1. Activer l'API Gmail",
+                             "https://console.cloud.google.com/apis/library/gmail.googleapis.com",
+                             icon: "safari")
+                    openLink("2. Écran de consentement (m'ajouter en test)",
+                             "https://console.cloud.google.com/apis/credentials/consent",
+                             icon: "person.badge.shield.checkmark")
+                    openLink("3. Créer l'identifiant OAuth",
+                             "https://console.cloud.google.com/apis/credentials",
+                             icon: "key")
+                    Text("Type : Application iOS (ou macOS). Bundle ID EXACT : "
+                         + "com.othman.jobtrack. Puis colle l'ID "
+                         + "…apps.googleusercontent.com ci-dessous.")
+                }
+                .font(.footnote)
                 TextField("Identifiant client OAuth (…apps.googleusercontent.com)",
                           text: $vm.gmailClientIDInput)
                     #if os(iOS)
@@ -214,23 +233,12 @@ struct SettingsView: View {
         } header: {
             Text("Gmail (brouillons & relances automatiques)")
         } footer: {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Pour créer les brouillons et détecter les réponses. Étapes sur "
-                     + "console.cloud.google.com :")
-                Text("1. API Gmail activée (APIs & Services → Enable).\n"
-                     + "2. Écran de consentement OAuth : ajoute ton adresse comme "
-                     + "« utilisateur de test », scopes gmail.compose + gmail.readonly.\n"
-                     + "3. Identifiants → crée un ID OAuth de type Application iOS "
-                     + "(ou macOS), avec le Bundle ID EXACT de l'app "
-                     + "(com.othman.jobtrack). Colle l'ID …apps.googleusercontent.com "
-                     + "ci-dessus.")
-                Text("Erreur à la connexion ? Le Bundle ID doit correspondre et ton "
-                     + "compte doit être utilisateur de test. Sinon, connecte-toi "
-                     + "simplement à Gmail dans l'onglet Web. Aucun mot de passe "
-                     + "stocké — seul un jeton dans le Keychain.")
-                    .foregroundStyle(.secondary)
-            }
-            .font(.footnote)
+            Text("Sert à créer les brouillons et détecter les réponses. "
+                 + "Le plus simple : connecte-toi à Gmail dans l'onglet Web "
+                 + "(aucune config). L'OAuth ci-dessus n'est nécessaire que pour les "
+                 + "brouillons automatiques. Aucun mot de passe stocké — seul un jeton "
+                 + "dans le Keychain.")
+                .font(.footnote)
         }
     }
 
@@ -265,6 +273,14 @@ struct SettingsView: View {
                 }
                 Button("Annuler", role: .cancel) {}
             }
+        }
+    }
+
+    /// A tappable row that opens a setup page in the system browser.
+    private func openLink(_ title: String, _ urlString: String,
+                          icon: String = "arrow.up.forward.app") -> some View {
+        Link(destination: URL(string: urlString)!) {
+            Label(title, systemImage: icon)
         }
     }
 
