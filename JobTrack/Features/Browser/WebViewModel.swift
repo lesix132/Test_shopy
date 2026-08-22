@@ -21,7 +21,86 @@ final class WebViewModel {
     /// The page to load once the web view is created.
     var initialURL = URL(string: "https://candidat.francetravail.fr")!
 
-    init() {}
+    // MARK: Auto-scan
+
+    private let defaults = UserDefaults(suiteName: AppConfig.appGroupID) ?? .standard
+    private let autoScanKey = "web.autoscan.enabled"
+
+    /// When on, each finished page is analysed and a matching offer is outlined.
+    var autoScanEnabled: Bool {
+        didSet { defaults.set(autoScanEnabled, forKey: autoScanKey) }
+    }
+    /// URLs already scanned this session, so we don't re-analyse (and re-bill) them.
+    private var scannedURLs: Set<String> = []
+
+    init() {
+        autoScanEnabled = defaults.object(forKey: autoScanKey) as? Bool ?? true
+    }
+
+    /// Marks `url` as scanned; returns true only the first time it's seen.
+    func markScannedIfNew(_ url: URL) -> Bool {
+        scannedURLs.insert(url.absoluteString).inserted
+    }
+
+    /// Cheap client-side pre-filter so we only call the AI on pages that look
+    /// like a job offer — avoids scanning every random page.
+    static func looksLikeJobPage(_ text: String) -> Bool {
+        guard text.count > 300 else { return false }
+        let t = text.lowercased()
+        let signals = ["offre d'emploi", "poste", "cdi", "cdd", "alternance", "stage",
+                       "mission", "profil recherché", "expérience", "recrut", "candidat",
+                       "compétences", "salaire", "télétravail", "job", "apply", "hiring"]
+        return signals.filter { t.contains($0) }.count >= 2
+    }
+
+    /// Outlines the likely offer on the page and shows a floating match badge.
+    func highlightMatch(score: Int) async {
+        guard let webView else { return }
+        let js = """
+        (function(){
+          try{
+            var prev=document.getElementById('__jt_badge'); if(prev) prev.remove();
+            var old=document.querySelector('[data-jt-outline]');
+            if(old){ old.style.outline=''; old.style.outlineOffset=''; old.removeAttribute('data-jt-outline'); }
+            var el=document.querySelector('main')||document.querySelector('article')||document.querySelector('[role=main]');
+            if(!el){
+              var best=null,bestLen=0;
+              document.querySelectorAll('section,div').forEach(function(n){
+                var len=(n.innerText||'').length;
+                if(len>bestLen && len<20000){bestLen=len;best=n;}
+              });
+              el=best||document.body;
+            }
+            el.setAttribute('data-jt-outline','1');
+            el.style.outline='3px solid #34C759';
+            el.style.outlineOffset='6px';
+            el.style.borderRadius='10px';
+            el.scrollIntoView({behavior:'smooth',block:'start'});
+            var b=document.createElement('div'); b.id='__jt_badge';
+            b.textContent='✓ Offre compatible à \(score)%';
+            b.style.cssText='position:fixed;top:12px;left:50%;transform:translateX(-50%);'+
+              'z-index:2147483647;background:#34C759;color:#fff;padding:8px 14px;'+
+              'border-radius:20px;font:600 14px -apple-system,system-ui,sans-serif;'+
+              'box-shadow:0 4px 12px rgba(0,0,0,.25);';
+            document.body.appendChild(b);
+          }catch(e){}
+        })();
+        """
+        _ = try? await webView.evaluateJavaScript(js)
+    }
+
+    /// Removes any outline/badge added by `highlightMatch`.
+    func clearHighlight() async {
+        guard let webView else { return }
+        let js = """
+        (function(){
+          var b=document.getElementById('__jt_badge'); if(b) b.remove();
+          var o=document.querySelector('[data-jt-outline]');
+          if(o){ o.style.outline=''; o.style.outlineOffset=''; o.removeAttribute('data-jt-outline'); }
+        })();
+        """
+        _ = try? await webView.evaluateJavaScript(js)
+    }
 
     // MARK: Navigation
 

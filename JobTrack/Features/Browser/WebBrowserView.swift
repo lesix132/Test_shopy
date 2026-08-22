@@ -13,6 +13,9 @@ struct WebBrowserView: View {
     @State private var importing = false
     @State private var importMessage: String?
     @State private var matchAnalysis: PageMatchAnalysis?
+    /// Result of an automatic background scan, shown as an "import?" banner.
+    @State private var autoMatch: PageMatchAnalysis?
+    @State private var scanning = false
 
     private var defaultResumeText: String? {
         let cv = resumes.first(where: { $0.isDefault }) ?? resumes.first
@@ -26,15 +29,28 @@ struct WebBrowserView: View {
             Divider()
             ZStack(alignment: .top) {
                 WebView(model: model)
-                if model.isLoading {
+                if model.isLoading || scanning {
                     ProgressView()
                         .padding(6)
                         .background(.regularMaterial, in: Capsule())
                         .padding(.top, 6)
                 }
+                if let autoMatch {
+                    matchBanner(autoMatch)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
             }
         }
         .safeAreaInset(edge: .bottom) { bottomBar }
+        .onChange(of: model.isLoading) { _, loading in
+            if !loading { autoScanIfNeeded() }
+        }
+        .onChange(of: model.currentURL) { _, _ in
+            // Left the analysed page → drop its banner.
+            autoMatch = nil
+        }
         .alert("Import", isPresented: Binding(
             get: { importMessage != nil },
             set: { if !$0 { importMessage = nil } }
@@ -83,7 +99,8 @@ struct WebBrowserView: View {
     // MARK: Bottom toolbar
 
     private var bottomBar: some View {
-        HStack {
+        @Bindable var model = model
+        return HStack {
             Button { model.goBack() } label: { Image(systemName: "chevron.backward") }
                 .disabled(!model.canGoBack)
             Spacer()
@@ -125,6 +142,10 @@ struct WebBrowserView: View {
                 } label: {
                     Label("Remplir mes infos", systemImage: "person.text.rectangle")
                 }
+                Divider()
+                Toggle(isOn: $model.autoScanEnabled) {
+                    Label("Scan auto des offres", systemImage: "sparkles.rectangle.stack")
+                }
             } label: {
                 if importing {
                     ProgressView()
@@ -138,6 +159,78 @@ struct WebBrowserView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
         .background(.regularMaterial)
+    }
+
+    // MARK: Auto-scan banner
+
+    @ViewBuilder
+    private func matchBanner(_ analysis: PageMatchAnalysis) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle().fill(.green.opacity(0.15)).frame(width: 42, height: 42)
+                Text("\(analysis.overallScore)%")
+                    .font(.caption.bold()).foregroundStyle(.green)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Offre compatible détectée").font(.subheadline.weight(.semibold))
+                Text("Correspondance ≥ 40 % avec ton profil").font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button {
+                matchAnalysis = analysis
+            } label: {
+                Image(systemName: "list.bullet.rectangle")
+            }
+            .buttonStyle(.borderless)
+            Button("Importer") {
+                let toImport = analysis
+                autoMatch = nil
+                Task { await model.clearHighlight() }
+                importCurrentPage(matchScore: toImport.overallScore)
+            }
+            .buttonStyle(.borderedProminent)
+            Button {
+                autoMatch = nil
+                Task { await model.clearHighlight() }
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.borderless)
+        }
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .shadow(radius: 6, y: 3)
+    }
+
+    /// Runs after each page finishes loading (when auto-scan is on): analyse the
+    /// page and, if it matches the profile/CV at ≥ 40 %, outline it and offer to
+    /// import. Silent on failure — it's a background convenience.
+    private func autoScanIfNeeded() {
+        guard model.autoScanEnabled, !importing, !scanning else { return }
+        guard let url = model.currentURL, url.scheme?.hasPrefix("http") == true,
+              model.markScannedIfNew(url) else { return }
+        let profile = ProfileStore().load().promptContext
+        // Nothing to match against → skip.
+        guard !profile.isEmpty || defaultResumeText != nil else { return }
+
+        scanning = true
+        Task {
+            defer { scanning = false }
+            guard let text = await model.captureVisibleText(),
+                  WebViewModel.looksLikeJobPage(text) else { return }
+            do {
+                let analysis = try await services.claude.analyzePageMatch(
+                    pageText: String(text.prefix(6000)),
+                    profile: profile.isEmpty ? nil : profile,
+                    resumeText: defaultResumeText)
+                guard analysis.overallScore >= 40 else { return }
+                withAnimation { autoMatch = analysis }
+                await model.highlightMatch(score: analysis.overallScore)
+            } catch {
+                // Auto-scan stays silent; the manual "Analyser" action reports errors.
+            }
+        }
     }
 
     // MARK: Match analysis
@@ -239,7 +332,7 @@ struct WebBrowserView: View {
 
     // MARK: Import
 
-    private func importCurrentPage() {
+    private func importCurrentPage(matchScore: Int? = nil) {
         importing = true
         Task {
             defer { importing = false }
@@ -255,6 +348,7 @@ struct WebBrowserView: View {
                     location: parsed.location,
                     descriptionText: parsed.description,
                     sourceURL: model.currentURL?.absoluteString,
+                    matchScore: matchScore,
                     needsParsing: false
                 )
                 if let region = FrenchRegion.detect(from: parsed.location) {

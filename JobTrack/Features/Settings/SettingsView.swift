@@ -154,11 +154,18 @@ struct SettingsView: View {
         } header: {
             Text("Sources France (offres FR)")
         } footer: {
-            Text("Alternative légale à LinkedIn/Indeed. Clés gratuites : "
-                 + "France Travail sur francetravail.io (espace développeur), "
-                 + "Adzuna sur developer.adzuna.com. Une fois enregistrées, active "
-                 + "la source dans l'onglet Fil → Sources, et règle les mots-clés "
-                 + "(défaut : « \(AppConfig.defaultFeedQuery) »).")
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Alternative légale à LinkedIn/Indeed. Clés gratuites.")
+                Text("France Travail (francetravail.io) : crée une application, puis "
+                     + "ABONNE-la à l'API « Offres d'emploi v2 » (sinon la recherche "
+                     + "échoue même avec des clés valides). Copie l'Identifiant client "
+                     + "et la Clé secrète ici.")
+                Text("Adzuna : app_id + app_key sur developer.adzuna.com.")
+                Text("Puis active la source dans Fil → Sources et règle les mots-clés "
+                     + "(défaut : « \(AppConfig.defaultFeedQuery) »).")
+                    .foregroundStyle(.secondary)
+            }
+            .font(.footnote)
         }
     }
 
@@ -205,13 +212,25 @@ struct SettingsView: View {
                 Button("Déconnecter Gmail", role: .destructive) { vm.disconnectGmail() }
             }
         } header: {
-            Text("Gmail (envoi & relances automatiques)")
+            Text("Gmail (brouillons & relances automatiques)")
         } footer: {
-            Text("Connecte ton compte pour envoyer les e-mails et détecter les "
-                 + "réponses. Crée un identifiant OAuth (type iOS) sur "
-                 + "console.cloud.google.com, active l'API Gmail, et ajoute les "
-                 + "scopes gmail.send et gmail.readonly. Aucun mot de passe n'est "
-                 + "stocké — seul un jeton sécurisé dans le Keychain.")
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Pour créer les brouillons et détecter les réponses. Étapes sur "
+                     + "console.cloud.google.com :")
+                Text("1. API Gmail activée (APIs & Services → Enable).\n"
+                     + "2. Écran de consentement OAuth : ajoute ton adresse comme "
+                     + "« utilisateur de test », scopes gmail.compose + gmail.readonly.\n"
+                     + "3. Identifiants → crée un ID OAuth de type Application iOS "
+                     + "(ou macOS), avec le Bundle ID EXACT de l'app "
+                     + "(com.othman.jobtrack). Colle l'ID …apps.googleusercontent.com "
+                     + "ci-dessus.")
+                Text("Erreur à la connexion ? Le Bundle ID doit correspondre et ton "
+                     + "compte doit être utilisateur de test. Sinon, connecte-toi "
+                     + "simplement à Gmail dans l'onglet Web. Aucun mot de passe "
+                     + "stocké — seul un jeton dans le Keychain.")
+                    .foregroundStyle(.secondary)
+            }
+            .font(.footnote)
         }
     }
 
