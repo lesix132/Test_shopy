@@ -10,6 +10,9 @@ struct RootView: View {
 
     var body: some View {
         TabView {
+            DashboardView()
+                .tabItem { Label("Accueil", systemImage: "square.grid.2x2") }
+
             OfferListView()
                 .tabItem { Label("Offres", systemImage: "briefcase") }
 
