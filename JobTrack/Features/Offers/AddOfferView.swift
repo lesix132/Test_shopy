@@ -28,19 +28,24 @@ struct AddOfferView: View {
                 }
             }
             .navigationTitle(existingOffer == nil ? "Nouvelle offre" : "Confirmer l'import")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .safeAreaInset(edge: .top) {
+                if let viewModel { saveBar(viewModel) }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Annuler") { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Enregistrer") {
-                        viewModel?.save(into: modelContext, existing: existingOffer)
-                        dismiss()
-                    }
-                    .disabled(!(viewModel?.canSave ?? false))
-                }
             }
         }
+        #if os(iOS)
+        .presentationDetents([.large, .medium])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(28)
+        .presentationBackground(.regularMaterial)
+        #endif
         .onAppear {
             if viewModel == nil {
                 let vm = AddOfferViewModel(claude: services.claude)
@@ -48,6 +53,24 @@ struct AddOfferView: View {
                 viewModel = vm
             }
         }
+    }
+
+    /// Prominent "save" action pinned at the top of the floating sheet.
+    private func saveBar(_ vm: AddOfferViewModel) -> some View {
+        Button {
+            vm.save(into: modelContext, existing: existingOffer)
+            dismiss()
+        } label: {
+            Label("Enregistrer l'offre", systemImage: "square.and.arrow.down")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(!vm.canSave)
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(.bar)
     }
 
     @ViewBuilder

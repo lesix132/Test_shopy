@@ -1,5 +1,12 @@
 import Foundation
 
+/// A file to attach to an outgoing message (e.g. the CV PDF).
+struct EmailAttachment: Sendable {
+    let filename: String
+    let mimeType: String
+    let data: Data
+}
+
 /// Sends email through the connected Gmail account and checks for replies.
 /// Uses `GoogleOAuthService` for tokens. The user connects their own account;
 /// nothing is sent without an explicit action.
@@ -42,11 +49,14 @@ final class GmailService {
         }
     }
 
-    /// Creates a Gmail draft (not sent) — the "brouillon".
-    func createDraft(to recipient: String, subject: String, body: String) async throws {
+    /// Creates a Gmail draft (not sent) — the "brouillon". An optional
+    /// attachment (e.g. the CV PDF) is added as a multipart part.
+    func createDraft(to recipient: String, subject: String, body: String,
+                     attachment: EmailAttachment? = nil) async throws {
         let token = try await oauth.validAccessToken()
         let raw = Self.makeRawMessage(
-            to: recipient, from: oauth.connectedAddress, subject: subject, body: body)
+            to: recipient, from: oauth.connectedAddress, subject: subject, body: body,
+            attachment: attachment)
 
         var request = URLRequest(url: URL(string: "\(AppConfig.gmailAPIBase)/drafts")!)
         request.httpMethod = "POST"
@@ -105,18 +115,37 @@ final class GmailService {
     // MARK: RFC 822
 
     private static func makeRawMessage(
-        to: String, from: String?, subject: String, body: String
+        to: String, from: String?, subject: String, body: String,
+        attachment: EmailAttachment? = nil
     ) -> String {
         var headers = ""
         if let from { headers += "From: \(from)\r\n" }
         headers += "To: \(to)\r\n"
         headers += "Subject: \(encodeHeader(subject))\r\n"
         headers += "MIME-Version: 1.0\r\n"
-        headers += "Content-Type: text/plain; charset=\"UTF-8\"\r\n"
-        headers += "Content-Transfer-Encoding: base64\r\n\r\n"
 
-        let encodedBody = Data(body.utf8).base64EncodedString()
-        let message = headers + encodedBody
+        let message: String
+        if let attachment {
+            let boundary = "JTBoundary-\(UUID().uuidString)"
+            headers += "Content-Type: multipart/mixed; boundary=\"\(boundary)\"\r\n\r\n"
+            let bodyB64 = Data(body.utf8).base64EncodedString(
+                options: [.lineLength76Characters, .endLineWithCarriageReturn, .endLineWithLineFeed])
+            let fileB64 = attachment.data.base64EncodedString(
+                options: [.lineLength76Characters, .endLineWithCarriageReturn, .endLineWithLineFeed])
+            var parts = "--\(boundary)\r\n"
+            parts += "Content-Type: text/plain; charset=\"UTF-8\"\r\n"
+            parts += "Content-Transfer-Encoding: base64\r\n\r\n\(bodyB64)\r\n"
+            parts += "--\(boundary)\r\n"
+            parts += "Content-Type: \(attachment.mimeType); name=\"\(attachment.filename)\"\r\n"
+            parts += "Content-Disposition: attachment; filename=\"\(attachment.filename)\"\r\n"
+            parts += "Content-Transfer-Encoding: base64\r\n\r\n\(fileB64)\r\n"
+            parts += "--\(boundary)--"
+            message = headers + parts
+        } else {
+            headers += "Content-Type: text/plain; charset=\"UTF-8\"\r\n"
+            headers += "Content-Transfer-Encoding: base64\r\n\r\n"
+            message = headers + Data(body.utf8).base64EncodedString()
+        }
         return Data(message.utf8).base64URLEncodedString()
     }
 

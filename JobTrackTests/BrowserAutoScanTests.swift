@@ -21,6 +21,16 @@ final class BrowserAutoScanTests: XCTestCase {
         XCTAssertFalse(WebViewModel.looksLikeJobPage("CDI poste emploi"))
     }
 
+    func testFirstEmailPrefersRealAddress() {
+        let text = "Merci de postuler. Contact : recrutement@acme.fr — "
+            + "ne pas répondre à noreply@acme.fr"
+        XCTAssertEqual(WebViewModel.firstEmail(in: text), "recrutement@acme.fr")
+    }
+
+    func testFirstEmailNilWhenNone() {
+        XCTAssertNil(WebViewModel.firstEmail(in: "Aucune adresse ici."))
+    }
+
     func testMarkScannedIsOncePerURL() {
         let model = WebViewModel()
         let url = URL(string: "https://example.com/job/1")!

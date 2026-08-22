@@ -17,10 +17,21 @@ struct WebBrowserView: View {
     @State private var autoMatch: PageMatchAnalysis?
     @State private var scanning = false
 
+    private var defaultResume: Resume? {
+        resumes.first(where: { $0.isDefault }) ?? resumes.first
+    }
+
     private var defaultResumeText: String? {
-        let cv = resumes.first(where: { $0.isDefault }) ?? resumes.first
-        let text = cv?.extractedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = defaultResume?.extractedText.trimmingCharacters(in: .whitespacesAndNewlines)
         return (text?.isEmpty == false) ? text : nil
+    }
+
+    /// The default CV as a mail attachment, if one is stored.
+    private var cvAttachment: EmailAttachment? {
+        guard let cv = defaultResume, !cv.pdfData.isEmpty else { return nil }
+        let safeName = cv.name.isEmpty ? "CV" : cv.name
+        return EmailAttachment(filename: "\(safeName).pdf",
+                               mimeType: "application/pdf", data: cv.pdfData)
     }
 
     var body: some View {
@@ -281,19 +292,21 @@ struct WebBrowserView: View {
                 return
             }
             do {
-                // 1) Read the page → structured offer.
+                // 1) Read the page → structured offer, and pick up a contact email.
                 let parsed = try await services.claude.parseOffer(rawText: String(text.prefix(8000)))
+                let contactEmail = WebViewModel.firstEmail(in: text)
                 let offer = JobOffer(
                     title: parsed.title, company: parsed.company,
                     location: parsed.location, descriptionText: parsed.description,
-                    sourceURL: model.currentURL?.absoluteString, needsParsing: false)
+                    sourceURL: model.currentURL?.absoluteString, needsParsing: false,
+                    contactEmail: contactEmail)
                 if let region = FrenchRegion.detect(from: parsed.location) {
                     offer.tags.append(region.rawValue)
                 }
                 modelContext.insert(offer)
                 try? modelContext.save()
 
-                // 2) Draft the application email from profile + CV.
+                // 2) Draft the application email from profile + CV (with a hook).
                 let profileContext = ProfileStore().load().promptContext
                 let draft = try await services.claude.generateEmail(
                     kind: .application,
@@ -302,18 +315,23 @@ struct WebBrowserView: View {
                     senderProfile: profileContext.isEmpty ? nil : profileContext,
                     tone: .formal)
 
-                // 3) Deposit it as a draft.
+                // 3) Deposit it as a draft — recruiter email as recipient, CV attached.
+                let emailLabel = contactEmail.map { " (à : \($0))" } ?? " (destinataire à compléter)"
+                let cvNote = cvAttachment != nil ? " CV joint." : ""
                 if services.gmail.isConnected {
                     try await services.gmail.createDraft(
-                        to: offer.contactEmail ?? "",
+                        to: contactEmail ?? "",
                         subject: draft.subject,
-                        body: draft.body)
-                    importMessage = "✅ Offre importée + brouillon de candidature créé dans Gmail."
+                        body: draft.body,
+                        attachment: cvAttachment)
+                    importMessage = "✅ Offre importée + brouillon Gmail prêt\(emailLabel).\(cvNote)"
                 } else {
-                    offer.notes = "✉️ Brouillon de candidature — Objet : \(draft.subject)\n\n\(draft.body)"
+                    let to = contactEmail ?? "—"
+                    offer.notes = "✉️ Brouillon de candidature\nÀ : \(to)\nObjet : "
+                        + "\(draft.subject)\n\n\(draft.body)"
                     try? modelContext.save()
-                    importMessage = "✅ Offre importée + brouillon préparé dans les notes de l'offre. "
-                        + "Connecte Gmail (Réglages) pour l'obtenir directement en brouillon d'email."
+                    importMessage = "✅ Offre importée + brouillon préparé dans les notes\(emailLabel). "
+                        + "Connecte Gmail (Réglages) pour l'obtenir en brouillon d'email avec CV joint."
                 }
 
                 // Notify the user their draft is ready to finish sending.

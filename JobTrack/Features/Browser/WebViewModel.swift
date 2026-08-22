@@ -45,6 +45,24 @@ final class WebViewModel {
         scannedURLs.insert(url.absoluteString).inserted
     }
 
+    /// First plausible contact email found in a block of text (recruiter mailbox
+    /// on the offer page). Skips obvious no-reply / asset addresses.
+    static func firstEmail(in text: String) -> String? {
+        let pattern = "[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+        let range = NSRange(text.startIndex..., in: text)
+        let found = regex.matches(in: text, range: range).compactMap {
+            Range($0.range, in: text).map { String(text[$0]) }
+        }
+        let bad = ["noreply", "no-reply", "donotreply", "ne-pas-repondre", "@sentry", "@wix", "@example"]
+        let preferred = found.first { addr in
+            !bad.contains { addr.lowercased().contains($0) }
+        }
+        return preferred ?? found.first
+    }
+
     /// Cheap client-side pre-filter so we only call the AI on pages that look
     /// like a job offer — avoids scanning every random page.
     static func looksLikeJobPage(_ text: String) -> Bool {
