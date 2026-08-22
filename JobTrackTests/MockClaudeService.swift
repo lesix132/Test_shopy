@@ -89,4 +89,13 @@ final class MockClaudeService: ClaudeService {
     ) async throws -> EmailDraft {
         try emailResult.get()
     }
+
+    var adviceResult: Result<ResumeAdvice, Error> = .success(
+        ResumeAdvice(atsScore: 68, presentKeywords: ["Swift"],
+                     missingKeywords: ["Sûreté"], suggestions: ["Quantifie tes résultats."],
+                     optimizedSummary: "Ingénieur avec 5 ans d'expérience…"))
+
+    func tailorResume(resumeText: String, offer: JobOffer) async throws -> ResumeAdvice {
+        try adviceResult.get()
+    }
 }

@@ -123,7 +123,18 @@ struct FeedSource: Identifiable, Hashable, Codable, Sendable {
             urlString: "https://weworkremotely.com/remote-jobs.rss",
             kind: .rss
         ),
-    ] + newsDefaults
+    ] + companyDefaults + newsDefaults
+
+    /// Big French employers the user asked to follow (Orano, EDF, Framatome,
+    /// Dalkia…). They query the Adzuna API by company name, so they populate the
+    /// feed once Adzuna keys are set (Réglages). Disabled by default to avoid
+    /// "missing keys" noise before setup.
+    static let companyDefaults: [FeedSource] = [
+        "Orano", "EDF", "Framatome", "Dalkia",
+    ].map { name in
+        FeedSource(name: name, urlString: "https://www.adzuna.fr",
+                   kind: .adzuna, isEnabled: false, query: name, category: .jobs)
+    }
 
     /// Built-in employment-news feeds. They use Google News RSS search endpoints,
     /// which are public, return standard RSS, aggregate many French outlets, and

@@ -238,5 +238,9 @@ struct WebShortcut: Identifiable {
         .init(name: "France Travail", systemImage: "building.2", url: URL(string: "https://candidat.francetravail.fr")!),
         .init(name: "Welcome to the Jungle", systemImage: "leaf", url: URL(string: "https://www.welcometothejungle.com")!),
         .init(name: "APEC", systemImage: "briefcase", url: URL(string: "https://www.apec.fr")!),
+        .init(name: "Orano", systemImage: "atom", url: URL(string: "https://www.orano.group/fr/carrieres")!),
+        .init(name: "EDF", systemImage: "bolt", url: URL(string: "https://www.edf.fr/edf-recrute")!),
+        .init(name: "Framatome", systemImage: "atom", url: URL(string: "https://www.framatome.com/fr/carrieres/")!),
+        .init(name: "Dalkia", systemImage: "flame", url: URL(string: "https://www.dalkia.fr/fr/rejoignez-nous")!),
     ]
 }

@@ -41,6 +41,14 @@ struct FeedSourceStore {
             changed = true
         }
 
+        // Seed the big-employer presets (Orano, EDF…) the first time they appear.
+        let existingNames = Set(sources.map(\.name))
+        let newCompanies = FeedSource.companyDefaults.filter { !existingNames.contains($0.name) }
+        if !newCompanies.isEmpty {
+            sources.append(contentsOf: newCompanies)
+            changed = true
+        }
+
         if changed { save(sources) }
         return sources
     }

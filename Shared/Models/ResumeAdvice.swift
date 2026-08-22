@@ -1,0 +1,44 @@
+import Foundation
+
+/// Advice from Claude on how to tune a CV so it passes an offer's ATS
+/// (applicant tracking system) screening more easily. Honest optimisation:
+/// surface real keywords to add and phrasing to improve — never invented
+/// experience.
+struct ResumeAdvice: Sendable, Equatable {
+    /// Estimated likelihood (0–100) the CV passes the offer's ATS as-is.
+    var atsScore: Int
+    /// Offer keywords already present in the CV.
+    var presentKeywords: [String]
+    /// Offer keywords missing from the CV (add them if truthful).
+    var missingKeywords: [String]
+    /// Concrete, actionable edits.
+    var suggestions: [String]
+    /// A rewritten professional summary / accroche tuned to the offer.
+    var optimizedSummary: String
+}
+
+/// Wire format decoded from Claude, mapped to `ResumeAdvice`.
+struct ResumeAdviceDTO: Decodable {
+    let atsScore: Int?
+    let presentKeywords: [String]?
+    let missingKeywords: [String]?
+    let suggestions: [String]?
+    let optimizedSummary: String?
+
+    enum CodingKeys: String, CodingKey {
+        case atsScore = "ats_score"
+        case presentKeywords = "present_keywords"
+        case missingKeywords = "missing_keywords"
+        case suggestions
+        case optimizedSummary = "optimized_summary"
+    }
+
+    func toAdvice() -> ResumeAdvice {
+        ResumeAdvice(
+            atsScore: min(100, max(0, atsScore ?? 0)),
+            presentKeywords: presentKeywords ?? [],
+            missingKeywords: missingKeywords ?? [],
+            suggestions: suggestions ?? [],
+            optimizedSummary: optimizedSummary ?? "")
+    }
+}

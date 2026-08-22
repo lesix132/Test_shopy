@@ -12,9 +12,19 @@ struct OfferDetailView: View {
     @State private var showingGenerator = false
     @State private var showingEdit = false
     @State private var showingDeleteConfirm = false
+    @State private var showingAdvice = false
+    @State private var preparing = false
+    @State private var prepareMessage: String?
 
     private var defaultResume: Resume? {
         resumes.first(where: \.isDefault) ?? resumes.first
+    }
+
+    /// The default CV as a mail attachment, if one is stored.
+    private var cvAttachment: EmailAttachment? {
+        guard let cv = defaultResume, !cv.pdfData.isEmpty else { return nil }
+        let name = cv.name.isEmpty ? "CV" : cv.name
+        return EmailAttachment(filename: "\(name).pdf", mimeType: "application/pdf", data: cv.pdfData)
     }
 
     var body: some View {
@@ -34,6 +44,8 @@ struct OfferDetailView: View {
             descriptionSection
             organizationSection
             matchSection
+            atsSection
+            automationSection
             lettersSection
             deleteSection
         }
@@ -51,6 +63,19 @@ struct OfferDetailView: View {
         }
         .sheet(isPresented: $showingGenerator) {
             CoverLetterView(offer: offer, resume: defaultResume)
+        }
+        .sheet(isPresented: $showingAdvice) {
+            if let advice = viewModel?.advice {
+                ResumeAdviceView(advice: advice, offer: offer)
+            }
+        }
+        .alert("Automatisation", isPresented: Binding(
+            get: { prepareMessage != nil },
+            set: { if !$0 { prepareMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { prepareMessage = nil }
+        } message: {
+            Text(prepareMessage ?? "")
         }
         .onAppear {
             if viewModel == nil {
@@ -190,6 +215,106 @@ struct OfferDetailView: View {
             .disabled(viewModel?.isScoring == true)
             if let error = viewModel?.errorMessage {
                 Text(error).font(.footnote).foregroundStyle(.orange)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var atsSection: some View {
+        Section {
+            Button {
+                Task {
+                    await viewModel?.tailorResume(for: offer, resume: defaultResume)
+                    if viewModel?.advice != nil { showingAdvice = true }
+                }
+            } label: {
+                if viewModel?.isTailoring == true {
+                    HStack { ProgressView(); Text("Optimisation…") }
+                } else {
+                    Label("Optimiser mon CV pour cette offre (ATS)",
+                          systemImage: "wand.and.stars.inverse")
+                }
+            }
+            .disabled(viewModel?.isTailoring == true)
+
+            if let advice = viewModel?.advice {
+                LabeledContent("Score ATS estimé", value: "\(advice.atsScore)%")
+                Button("Voir les recommandations") { showingAdvice = true }
+            }
+        } header: {
+            Text("Optimisation CV (ATS)")
+        } footer: {
+            Text("L'IA compare ton CV aux mots-clés de l'offre et propose des "
+                 + "reformulations honnêtes pour mieux passer les filtres automatiques.")
+        }
+    }
+
+    @ViewBuilder
+    private var automationSection: some View {
+        Section {
+            Button {
+                prepareDraft()
+            } label: {
+                if preparing {
+                    HStack { ProgressView(); Text("Préparation…") }
+                } else {
+                    Label("Préparer le mail de candidature (brouillon)",
+                          systemImage: "wand.and.stars")
+                }
+            }
+            .disabled(preparing)
+        } header: {
+            Text("Automatisation")
+        } footer: {
+            Text("L'IA relève l'email du recruteur, rédige un mail (objet + accroche) "
+                 + "et le dépose en brouillon Gmail avec ton CV joint (sinon dans les notes).")
+        }
+    }
+
+    /// Runs the "prepare application draft" pipeline for this saved offer.
+    private func prepareDraft() {
+        preparing = true
+        Task {
+            defer { preparing = false }
+            do {
+                // Make sure we have a recruiter email (scan description + notes).
+                if (offer.contactEmail ?? "").isEmpty,
+                   let found = WebViewModel.firstEmail(in: offer.descriptionText + "\n" + offer.notes) {
+                    offer.contactEmail = found
+                    try? modelContext.save()
+                }
+                let profileContext = ProfileStore().load().promptContext
+                let cvText = defaultResume?.extractedText
+                let draft = try await services.claude.generateEmail(
+                    kind: .application,
+                    offer: offer,
+                    resumeText: (cvText?.isEmpty == false) ? cvText : nil,
+                    senderProfile: profileContext.isEmpty ? nil : profileContext,
+                    tone: .formal)
+
+                let email = offer.contactEmail ?? ""
+                let toLabel = email.isEmpty ? " (destinataire à compléter)" : " (à : \(email))"
+                let cvNote = cvAttachment != nil ? " CV joint." : ""
+                if services.gmail.isConnected {
+                    try await services.gmail.createDraft(
+                        to: email, subject: draft.subject, body: draft.body,
+                        attachment: cvAttachment)
+                    prepareMessage = "✅ Brouillon Gmail prêt\(toLabel).\(cvNote)"
+                } else {
+                    let to = email.isEmpty ? "—" : email
+                    offer.notes = "✉️ Brouillon de candidature\nÀ : \(to)\nObjet : "
+                        + "\(draft.subject)\n\n\(draft.body)"
+                        + (offer.notes.isEmpty ? "" : "\n\n---\n\(offer.notes)")
+                    try? modelContext.save()
+                    prepareMessage = "✅ Brouillon préparé dans les notes\(toLabel). "
+                        + "Connecte Gmail (Réglages) pour l'obtenir en brouillon email avec CV joint."
+                }
+            } catch let error as ClaudeError {
+                prepareMessage = error.errorDescription
+            } catch let error as GmailError {
+                prepareMessage = error.errorDescription
+            } catch {
+                prepareMessage = error.localizedDescription
             }
         }
     }

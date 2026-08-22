@@ -51,6 +51,11 @@ protocol ClaudeService {
         senderProfile: String?,
         tone: LetterTone
     ) async throws -> EmailDraft
+
+    /// Advise how to tune a CV to pass an offer's ATS more easily: an ATS
+    /// score, present/missing keywords, concrete edits, and an optimized
+    /// professional summary. Honest — never invents experience.
+    func tailorResume(resumeText: String, offer: JobOffer) async throws -> ResumeAdvice
 }
 
 /// Live implementation calling the Anthropic Messages API.
@@ -289,6 +294,50 @@ struct ClaudeAPIService: ClaudeService {
             throw ClaudeError.decoding
         }
         return draft
+    }
+
+    func tailorResume(resumeText: String, offer: JobOffer) async throws -> ResumeAdvice {
+        let system = """
+        Tu es un expert en optimisation de CV pour les ATS (logiciels de tri \
+        automatique de candidatures). On te donne un CV et une offre. Ton but : \
+        aider le CV à mieux passer l'ATS de CETTE offre, de façon HONNÊTE — tu \
+        n'inventes jamais d'expérience, de diplôme ou de compétence ; tu \
+        proposes seulement de reformuler, réorganiser, et faire remonter des \
+        éléments réels déjà présents (ou plausibles à ajouter par le candidat). \
+        Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour :
+        {"ats_score": 0-100, "present_keywords": ["..."], \
+        "missing_keywords": ["..."], "suggestions": ["..."], \
+        "optimized_summary": "..."}
+        - ats_score : probabilité (0-100) que le CV passe l'ATS de l'offre tel quel.
+        - present_keywords : mots-clés/compétences de l'offre déjà dans le CV.
+        - missing_keywords : mots-clés importants de l'offre absents du CV \
+          (à ajouter SEULEMENT s'ils sont vrais pour le candidat).
+        - suggestions : 4 à 8 conseils concrets et actionnables en français \
+          (reformulations, verbes d'action, quantification, format ATS-friendly).
+        - optimized_summary : une accroche/résumé professionnel (3-5 lignes) \
+          réécrit et calibré pour cette offre, à partir du CV réel.
+        """
+        let userContent = """
+        === CV ===
+        \(resumeText)
+
+        === OFFRE ===
+        Intitulé : \(offer.title)
+        Entreprise : \(offer.company)
+        Lieu : \(offer.location)
+        Description :
+        \(offer.descriptionText)
+        """
+        let text = try await send(
+            system: system,
+            userContent: userContent,
+            maxTokens: 2048,
+            temperature: 0.3
+        )
+        guard let dto: ResumeAdviceDTO = decodeJSON(from: text) else {
+            throw ClaudeError.decoding
+        }
+        return dto.toAdvice()
     }
 
     func extractProfile(resumeText: String) async throws -> ExtractedProfile {
